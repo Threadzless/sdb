@@ -1,0 +1,21 @@
+[package]
+name = "sdb-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/macro.rs"
+proc-macro = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+syn = { version = "1", features = [ "full", "extra-traits", "parsing" ] }
+quote = "1.0"
+proc-macro2 = "1.0"
+proc-macro-error = { version = "1" }
+serde = "1.0"
+
+[features]
+## Prints the output of the macro at compile time. helpful for debugging 
+macro-print = []
