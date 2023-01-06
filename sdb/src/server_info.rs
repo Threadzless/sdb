@@ -82,12 +82,10 @@ impl ServerInfo {
         }
 
         let parts = main_url.split("/").into_iter().collect::<Vec<&str>>();
-        if parts.len() < 3 {
-            return Err(SdbError::InvalidHostString(
-                "Not enough slashes".to_string(),
-            ));
-        } else if parts.len() > 3 {
-            return Err(SdbError::InvalidHostString("Too many slashes".to_string()));
+        if parts.len() != 3 {
+            return Err(SdbError::InvalidHostString {
+                found: main_url.to_string()
+            });
         }
         let mut parts = parts.iter();
         let host = *parts.next().unwrap();

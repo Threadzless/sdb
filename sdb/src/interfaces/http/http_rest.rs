@@ -2,12 +2,13 @@ use async_trait::async_trait;
 
 use reqwest::{Client, ClientBuilder, RequestBuilder, Url};
 use serde_json::Value;
+// use serde_json::Value;
 
 use crate::{
     server_info::ServerInfo,
     client::interface::*,
-    reply::QueryReply,
-    error::{SdbError, SdbResult},
+    // reply::QueryReply,
+    error::{SdbError, SdbResult}, reply::QueryReply,
 };
 
 
@@ -18,7 +19,6 @@ pub struct HttpSurrealInterface {
 
 impl SurrealInterfaceBuilder for HttpSurrealInterface {
     fn new(_info: &ServerInfo) -> SdbResult<Self> {
-        
         let client = ClientBuilder::new()
             .build()
             .unwrap();
@@ -56,10 +56,7 @@ impl SurrealInterface for HttpSurrealInterface {
 
         let req = self.request(info, sql)?;
 
-        let res = match req.send().await {
-            Ok(res) => res,
-            Err(err) => panic!("Netork Error: {err:?}"),
-        };
+        let res = req.send().await?;
 
         let text = res.text().await.unwrap();
         match serde_json::from_str::<Vec<QueryReply>>( &text ) {
