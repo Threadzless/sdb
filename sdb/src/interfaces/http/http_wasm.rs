@@ -1,11 +1,11 @@
 
 use async_trait::async_trait;
 use serde_json::from_str;
-use gloo_net::http::{Request, Method, RequestCredentials};
-use gloo_net::http::Headers;
+use gloo_net::http::{Request, Method, RequestCredentials, Headers};
+use serde_json::Value;
 
 use crate::{
-    protocols::SdbProtocol,
+    client::interface::*,
     reply::QueryReply,
     error::{SdbError, SdbResult},
     server_info::ServerInfo,
@@ -13,14 +13,16 @@ use crate::{
 
 
 #[derive(Debug)]
-pub struct HttpProtocol {
+pub struct HttpSurrealInterface {
 }
 
-impl HttpProtocol {
-    pub fn new(_info: &ServerInfo) -> Self {
-        Self { }
+impl SurrealInterfaceBuilder for HttpSurrealInterface {
+    fn new(_info: &ServerInfo) -> SdbResult<Self> {
+        Ok(Self { })
     }
+}
 
+impl HttpSurrealInterface {
     fn request(&self, info: &ServerInfo, sql: impl ToString) -> Result<Request, SdbError> {
         let head = Headers::new();
         for (k, v) in info.headers() {
@@ -37,36 +39,11 @@ impl HttpProtocol {
     }
 }
 
-
-fn header_check( header: &str, expect: &str, found: Option<String> ) -> SdbResult<()> {
-    match found {
-        Some(ct) if ct.starts_with(expect) => {
-            Ok( () )
-        }
-        Some(ct) => {
-            Err(SdbError::InvalidHeader {
-                header: header.to_string(),
-                expected: expect.to_string(),
-                found: ct
-            })                    
-        },
-        None => {
-            Err(SdbError::MissingHeader { 
-                header: header.to_string(),
-                expected: expect.to_string(),
-            })                    
-        }
-    }
-}
-
 #[async_trait(?Send)]
-impl SdbProtocol for HttpProtocol {
+impl SurrealInterface for HttpSurrealInterface {
     
-    async fn connect_if_not(&mut self, _info: &ServerInfo) -> SdbResult<()> {
-        Ok( () )
-    }
-
-    async fn query(&mut self, info: &ServerInfo, sql: String) -> SdbResult<Vec<QueryReply>> {
+    async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
+        let Some( Value::String( sql ) ) = request.params.get(0) else { panic!() };
         let req = self.request(info, &sql)?;
 
         let res = match req.send().await {
@@ -88,11 +65,41 @@ impl SdbProtocol for HttpProtocol {
         match res.text().await {
             Ok( text ) => {
                 match from_str::<Vec<QueryReply>>( &text ) {
-                    Ok( r ) => Ok( r ),
+                    Ok( r ) => {
+                        Ok( SurrealResponse::Result {
+                            id: request.id,
+                            result: Some( r )
+                        })
+                    },
                     Err( e ) => Err( SdbError::Serde( e ) )
                 }
             },
             _ => panic!("Invalid response"),
+        }
+    }
+}
+
+
+
+
+
+fn header_check( header: &str, expect: &str, found: Option<String> ) -> SdbResult<()> {
+    match found {
+        Some(ct) if ct.starts_with(expect) => {
+            Ok( () )
+        }
+        Some(ct) => {
+            Err(SdbError::InvalidHeader {
+                header: header.to_string(),
+                expected: expect.to_string(),
+                found: ct
+            })                    
+        },
+        None => {
+            Err(SdbError::MissingHeader { 
+                header: header.to_string(),
+                expected: expect.to_string(),
+            })                    
         }
     }
 }

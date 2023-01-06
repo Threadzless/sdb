@@ -2,11 +2,9 @@ use serde::{de::*, *};
 use std::fmt::{Formatter, Result as FmtResult};
 
 use crate::{
-    error::{SdbResult, SdbError},
+    error::{SdbError, SdbResult},
     record::ToSurrealQL,
 };
-
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordId {
@@ -18,8 +16,9 @@ impl RecordId {
     /// TODO: check for spaces, too long, invalid characters, etc.
     pub fn parse(text: impl ToString) -> SdbResult<Self> {
         let text = text.to_string();
-        let (table, key) = text.split_once(":")
-            .ok_or( SdbError::UnableToParseAsRecordId( text.clone() ) )?;
+        let (table, key) = text
+            .split_once(":")
+            .ok_or(SdbError::UnableToParseAsRecordId(text.clone()))?;
         Ok(Self::new(table, key))
     }
 

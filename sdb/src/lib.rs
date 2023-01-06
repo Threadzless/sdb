@@ -127,10 +127,10 @@ accessible inside the queries.
 ### Varibale Parsing
 All variables after `client` are sanitized and included in the transaction. Queries can then
 reference their values. By default, variables will be named, in order of apperence, as `$0`,
-`$1`, `$2`, and so on. The can be named by following the variable or expression with 
+`$1`, `$2`, and so on. The can be named by following the variable or expression with
 `as $new_name`.
 
-Transaction variables must implement [`serde::Serialize`]. This requirement is 
+Transaction variables must implement [`serde::Serialize`]. This requirement is
 already met for primitive types ([`u32`], [`f64`], [`char`], ect.), [`String`]s, `&`[`str`]s,
 and a decent number of types in other libraries, which is usually feature gated. See you
 librarie's docs for more info
@@ -164,15 +164,15 @@ For example, by combining the `pluck("name")` and `limit(3)` methods, you can
 extract the `name` field from the first 3 records, and store them as a [`Vec<String>`]
 ```rust
 sdb::trans_act!( (client) => {
-    oldest_people_names: [String] = 
-        pluck("name") limit(5) 
+    oldest_people_names: [String] =
+        pluck("name") limit(5)
         "SELECT * FROM people ORDER BY age DESC";
 });
 ```
-These methods work by wrapping the existing query in more queries. the original query 
+These methods work by wrapping the existing query in more queries. the original query
 will be `<Q>` from here on.
 
-All arguments passed must be literals. You cannot inject variables this way (yet). Yes I 
+All arguments passed must be literals. You cannot inject variables this way (yet). Yes I
 do know this kinda defeats the purpose.
 
 ## Methods
@@ -201,7 +201,7 @@ SELECT * FROM ( <Q> ) LIMIT <max_results> START <start_offset>
 SELECT * FROM ( <Q> ) LIMIT <page_size> START (<page_size> * (<page_number> - 1))
 ```
 
-### shuffle( [[ `limit` ]] ) 
+### shuffle( [[ `limit` ]] )
 Select a random subset of the results
 ```
 SELECT * FROM ( <Q> ) ORDER BY rand()
@@ -228,34 +228,49 @@ sdb::trans_act( (client, search_term) => {
 ```
 */
 
-
 pub mod client;
-pub mod protocols;
+pub mod interfaces;
+// pub mod protocols;
 pub mod reply;
 pub mod transaction;
 
 pub mod any_record;
 pub mod credentials;
 pub mod error;
+pub mod record;
 pub mod record_id;
 pub mod record_link;
-pub mod record;
 pub mod server_info;
 
 pub use sdb_macros::*;
 
 pub mod prelude {
-    
+
     pub use crate::{
-        client::SurrealClient,
-        protocols::Protocol,
         any_record::AnyRecord,
+        client::SurrealClient,
+        credentials::Credentials,
+        error::{SdbError, SdbResult},
+        protocols::Protocol,
+        record::SurrealRecord,
         record_id::RecordId,
         record_link::RecordLink,
-        credentials::Credentials,
-        record::SurrealRecord,
-        error::{SdbError, SdbResult},
         server_info::ServerInfo,
     };
     pub use sdb_macros::*;
+}
+
+pub mod protocols {
+    #[derive(Clone, Debug, PartialEq, Default)]
+    pub enum Protocol {
+        /// Http POST requests. Slow, but ez.
+        Http,
+
+        /// Websockets, faster.
+        #[default]
+        Socket,
+
+        /// TiKV - scalable distributed storage layer that's surrealDb compatible
+        Tikv,
+    }
 }

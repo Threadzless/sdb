@@ -76,10 +76,12 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
             let call = select.method_call();
             let mut_token = select.mut_token();
 
-            out_calls.push(quote! { #trans . #call ? } );
-            out_types.push(quote! { #var_type } );
+            out_calls.push(quote! { #trans . #call ? });
+            out_types.push(quote! { #var_type });
             // out_vars.extend_list(quote! { #mut_token #var_name }, quote! { , });
-            unpack.extend(quote! { let #mut_token #var_name: #var_type = #trans . #call #result_act; });
+            unpack.extend(
+                quote! { let #mut_token #var_name: #var_type = #trans . #call #result_act; },
+            );
         };
 
         push_steps.extend(quote! { #line });
@@ -109,23 +111,18 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 #[proc_macro_derive(SurrealRecord)]
 pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
     let obj = parse_macro_input!(input as DeriveInput);
-    
+
     let Data::Struct( st ) = obj.data else { 
         panic!("Derive only works on Structs (so far)")
     };
 
-    let has_id_field = st.fields.iter()
-        .any(|field|{
-            match &field.ident {
-                Some( ident ) => {
-                    ident.to_string().eq("id")
-                },
-                None => false
-            }
-        });
+    let has_id_field = st.fields.iter().any(|field| match &field.ident {
+        Some(ident) => ident.to_string().eq("id"),
+        None => false,
+    });
 
     let struct_name = obj.ident;
-    
+
     if has_id_field {
         quote!(
             impl sdb::prelude::SurrealRecord for #struct_name {
@@ -133,9 +130,9 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
                     self.id.clone()
                 }
             }
-        ).into()
-    }
-    else {
+        )
+        .into()
+    } else {
         panic!("Derive requires an Id field to work")
     }
 }

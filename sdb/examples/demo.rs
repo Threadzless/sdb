@@ -1,25 +1,27 @@
-use serde::{Deserialize, Serialize};
 use sdb::prelude::*;
+use serde::{Deserialize, Serialize};
 use simplelog::*;
 
 async fn run() -> Result<(), SdbError> {
     let client = SurrealClient::new("127.0.0.1:8000/example/demo")
         .auth_basic("test_user", "test_pass")
-        .protocol(Protocol::Socket)
+        .protocol(Protocol::Http)
         .build()?;
 
     sdb::trans_act!( ( client ) => {
         $longest = "SELECT * FROM books ORDER word_count DESC";
 
-        mut longest_titles: Vec<String> = 
-            limit(3) pluck("title") "SELECT * FROM $longest";
+        mut longest_titles: Vec<String> =
+            pluck("title") "SELECT * FROM $longest LIMIT 3";
 
         long_count: i32 = count() "$longest";
 
         stories: Vec<BookSchema> = "SELECT * FROM $longest";
     });
 
-    longest_titles.push( "Blah blab".to_string() );
+
+
+    longest_titles.push("Blah blab".to_string());
     println!("Longest books: {:?}\n", longest_titles);
 
     println!("All books (ever) {}:", long_count);
@@ -65,14 +67,14 @@ fn main() {
         LevelFilter::Warn,
         Config::default(),
         TerminalMode::Mixed,
-        ColorChoice::Auto
-    ).unwrap();
+        ColorChoice::Auto,
+    )
+    .unwrap();
 
     let pool = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap();
 
-    pool.block_on( run() ).unwrap();
+    pool.block_on(run()).unwrap();
 }
-

@@ -126,7 +126,7 @@ impl QuerySqlBlock {
         match method.args.len() {
             0 => {
                 *sql = format!("SELECT * FROM count(({sql}))");
-            },
+            }
             _ => {
                 emit_error!(
                     method.call, "Unrecognised Method args.";
@@ -156,7 +156,7 @@ impl QuerySqlBlock {
         match method.args.len() {
             0 => {
                 *sql = format!("SELECT * FROM ({sql}) LIMIT 1");
-            },
+            }
 
             _ => {
                 emit_error!(
@@ -224,7 +224,7 @@ pub(crate) struct QueryMethod {
 }
 
 impl QueryMethod {
-    pub fn name( &self ) -> String {
+    pub fn name(&self) -> String {
         self.call.func.to_token_stream().to_string()
     }
 
@@ -238,20 +238,20 @@ impl QueryMethod {
     //     }
     // }
 
-    pub fn arg_usize( &self, index: usize ) -> Option<usize> {
+    pub fn arg_usize(&self, index: usize) -> Option<usize> {
         let Some( arg ) = self.call.args.iter().nth( index ) else { return None };
         let Expr::Lit( ExprLit { lit: Lit::Int( i ), .. } ) = arg else { return None };
 
         match i.base10_parse::<usize>() {
-            Ok( i ) => Some( i ),
-            Err( _ ) => None,
+            Ok(i) => Some(i),
+            Err(_) => None,
         }
     }
 
-    pub fn arg_str( &self, index: usize ) -> Option<String> {
+    pub fn arg_str(&self, index: usize) -> Option<String> {
         let Some( arg ) = self.call.args.iter().nth( index ) else { return None };
         let Expr::Lit( ExprLit { lit: Lit::Str( s ), .. } ) = arg else { return None };
-        Some( s.value() )
+        Some(s.value())
     }
 }
 

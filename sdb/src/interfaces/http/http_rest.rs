@@ -1,33 +1,35 @@
 use async_trait::async_trait;
 
 use reqwest::{Client, ClientBuilder, RequestBuilder, Url};
+use serde_json::Value;
 
 use crate::{
     server_info::ServerInfo,
-    protocols::SdbProtocol,
+    client::interface::*,
     reply::QueryReply,
-    // Credentials,
-    error::SdbError,
+    error::{SdbError, SdbResult},
 };
 
 
 #[derive(Debug)]
-pub struct HttpProtocol {
+pub struct HttpSurrealInterface {
     client: Client,
 }
 
-impl HttpProtocol {
-    pub fn new(_info: &ServerInfo) -> Self {
+impl SurrealInterfaceBuilder for HttpSurrealInterface {
+    fn new(_info: &ServerInfo) -> SdbResult<Self> {
         
         let client = ClientBuilder::new()
             .build()
             .unwrap();
 
-        Self {
+        Ok(Self {
             client,
-        }
+        })
     }
+}
 
+impl HttpSurrealInterface {
     // #[cfg(not( target_family = "wasm"))]
     fn request(&self, info: &ServerInfo, sql: impl ToString) -> Result<RequestBuilder, SdbError> {
         let url = Url::parse(&info.full_url())
@@ -46,22 +48,12 @@ impl HttpProtocol {
 
 // #[cfg(not( target_family = "wasm"))]
 #[async_trait(?Send)]
-impl SdbProtocol for HttpProtocol {
-    async 
-    fn connect_if_not(&mut self, _info: &ServerInfo) -> Result<(), SdbError> {
-        // let req = self.request("INFO FOR DB")?;
-        // match req.send().await {
-        //     Ok(_db) => Ok( vec![]),
-        //     Err( e ) => {
-        //         println!("{:?}", self.info );
-        //         todo!("CORS error?\n\n{:?}", e )
-        //     },
-        // }
-        Ok( () )
-    }
+impl SurrealInterface for HttpSurrealInterface {
+    // fn send(&mut self, info: &ServerInfo, sql: String) -> Result<Vec<QueryReply>, SdbError> {
+    async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
 
-    async 
-    fn query(&mut self, info: &ServerInfo, sql: String) -> Result<Vec<QueryReply>, SdbError> {
+        let Some( Value::String( sql ) ) = request.params.get(0) else { panic!() };
+
         let req = self.request(info, sql)?;
 
         let res = match req.send().await {
@@ -70,6 +62,16 @@ impl SdbProtocol for HttpProtocol {
         };
 
         let text = res.text().await.unwrap();
-        Ok( serde_json::from_str::<Vec<QueryReply>>( &text ).unwrap() )
+        match serde_json::from_str::<Vec<QueryReply>>( &text ) {
+            Err( _err ) => panic!("Failed to parse"),
+            Ok( replies ) => Ok(
+                SurrealResponse::Result {
+                    id: request.id, 
+                    result: Some( replies) 
+                }
+            )
+        }
+
+        // todo!()
     }
 }

@@ -1,13 +1,12 @@
-use std::fmt::Debug;
 use base64::encode;
+use std::fmt::Debug;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Credentials {
-    User { user: String, },
+    User { user: String },
     Basic { user: String, pass: String },
     Token { token: String },
-    Digest {
-    },
+    Digest {},
 }
 
 impl Credentials {
@@ -21,18 +20,15 @@ impl Credentials {
             Credentials::Basic { user, pass } => {
                 let base = encode(format!("{user}:{pass}"));
                 format!("Basic {base}")
-            },
-            _ => unimplemented!()
+            }
+            _ => unimplemented!(),
         };
 
-        headers.push((
-            "authorization".to_string(), 
-            auth_str
-        ));
+        headers.push(("authorization".to_string(), auth_str));
 
         headers.push((
             "Access-Control-Allow-Credentials".to_string(),
-            "true".to_string()
+            "true".to_string(),
         ));
 
         headers

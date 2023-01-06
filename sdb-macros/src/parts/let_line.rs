@@ -62,8 +62,9 @@ impl Parse for LetQueryInput {
         } else if let Ok(expr) = input.parse::<ExprBlock>() {
             Ok(Self::Block(expr))
         } else {
-            abort!( input.span(), "Expected a SQL string or brackets with an expression"
-
+            abort!(
+                input.span(),
+                "Expected a SQL string or brackets with an expression"
             );
         }
     }

@@ -1,8 +1,12 @@
 use serde::{Serialize, Deserialize};
 use serde_json::{Value, Map};
 
-use crate::{reply::QueryReply, error::{SdbError, SdbResult}, server_info::ServerInfo, credentials::Credentials};
-pub(crate) use super::SdbProtocol;
+use crate::{
+    reply::QueryReply, 
+    error::*,
+    server_info::ServerInfo,
+    credentials::Credentials
+};
 
 #[cfg(target_family="wasm")]
 mod ws_wasm;

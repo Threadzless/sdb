@@ -48,3 +48,6 @@ ws = [
     "websockets",
 ]
 tikv = [ ]
+macro-print = [
+    "sdb-macros/macro-print",
+]

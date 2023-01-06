@@ -1,10 +1,6 @@
 use crate::{
-    client::SurrealClient,
-    reply::TransactionReply,
-    error::SdbResult,
-    record::ToSurrealQL,
+    client::SurrealClient, error::SdbResult, record::ToSurrealQL, reply::TransactionReply,
 };
-
 
 pub struct TransQuery {
     pub(crate) sql: String,
@@ -33,7 +29,6 @@ impl TransactionBuilder {
     }
 
     pub fn push_var<T: ToSurrealQL>(mut self, var_name: &str, value: T) -> Self {
-
         self.queries.push(TransQuery {
             sql: format!("LET ${var_name} = {}", value.to_sql()),
             skip: true,

@@ -1,19 +1,19 @@
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 
 use crate::{
-    protocols::SdbProtocol,
-    client::ClientBuilder,
-    reply::TransactionReply,
-    transaction::TransactionBuilder, 
-    server_info::ServerInfo,
+    // protocols::SdbProtocol,
+    client::{ClientBuilder, SurrealInterface},
     error::SdbResult,
+    reply::TransactionReply,
+    server_info::ServerInfo,
+    transaction::TransactionBuilder,
 };
 
+use super::{SurrealInterfaceBuilder, SurrealRequest, SurrealResponse};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct SurrealClient {
-    server: ServerInfo,
-    pub(crate) interface: Arc<RwLock<dyn SdbProtocol>>,
+    inner: Arc<ClientInner>,
 }
 
 impl SurrealClient {
@@ -22,38 +22,73 @@ impl SurrealClient {
     }
 
     pub fn server(&self) -> &ServerInfo {
-        &self.server
+        &self.inner.server
+    }
+
+    pub(crate) fn build<I: SurrealInterfaceBuilder + 'static>(
+        server: ServerInfo,
+    ) -> SdbResult<Self> {
+        let socket = Box::new(Mutex::new(I::new(&server)?));
+
+        let inner = Arc::new(ClientInner {
+            socket,
+            server,
+        });
+
+        Ok(Self { inner })
     }
 
     pub fn transaction(&self) -> TransactionBuilder {
         TransactionBuilder::new(self)
     }
 
-    pub(crate) fn build(server: ServerInfo, interface: impl SdbProtocol + 'static) -> Self {
-        Self {
-            server,
-            interface: Arc::new( RwLock::new( interface ) ),
-        }
-    }
-
-    pub async fn query( &mut self, trans: TransactionBuilder ) -> SdbResult<TransactionReply> {
+    pub async fn query(&mut self, trans: TransactionBuilder) -> SdbResult<TransactionReply> {
         let (queries, sqls) = trans.queries();
         let full_sql = sqls.join(";\n");
 
-        #[cfg(feature = "log")]
-        log::debug!("SDB Transaction >\n{full_sql}");
+        let request = SurrealRequest::query(full_sql);
+        let req_id = request.id.clone();
 
-        let mut interface = self.interface.write()?;
-        let replies = interface.query( &self.server, full_sql).await?;
-        
-        Ok( TransactionReply::new(queries, replies) )
+        let mut socket = self.inner.socket.lock().unwrap();
+
+        let response = socket.send(&self.inner.server, request);
+        match response.await.unwrap() {
+            SurrealResponse::Error { id, error } => {
+                if id.ne(&req_id) {
+                    unreachable!(
+                        "Packets recieved out of order. {id:?} {req_id:?}. Plz report to github"
+                    )
+                }
+
+                #[cfg(feature = "log")]
+                log::error!("SurrealDB response: {:?}", error);
+
+                eprint!("SurrealDB response: {:?}", error);
+
+                panic!("Surreal Responded with an error");
+            }
+            SurrealResponse::Result { id, result } => {
+                if id.ne(&req_id) {
+                    unreachable!(
+                        "Packets recieved out of order. {id:?} {req_id:?}. Plz report to github"
+                    )
+                }
+
+                let results = result.expect("A non-null transaction response");
+
+                Ok(TransactionReply::new(queries, results))
+            }
+        }
     }
 }
 
-unsafe impl Sync for SurrealClient { }
-unsafe impl Send for SurrealClient { }
+//
+//
+//
 
-
-
-
-
+unsafe impl Sync for ClientInner { }
+unsafe impl Send for ClientInner { }
+pub struct ClientInner {
+    socket: Box<Mutex<dyn SurrealInterface>>,
+    server: ServerInfo,
+}

@@ -2,11 +2,7 @@ use serde::{de::*, Deserialize, Serialize};
 use serde_json::Value;
 use std::{marker::PhantomData, str::FromStr};
 
-use crate::{
-    any_record::AnyRecord,
-    record_id::RecordId,
-    record::SurrealRecord, error::SdbError,
-};
+use crate::{any_record::AnyRecord, error::SdbError, record::SurrealRecord, record_id::RecordId};
 
 /// A RecordLink, which can contain either a [RecordId], or a Record.
 ///
@@ -79,15 +75,14 @@ impl<T: SurrealRecord> FromStr for RecordLink<T> {
 /// be public for the compiler
 pub fn string_or_struct<'de, T, D>(deserializer: D) -> Result<T, D::Error>
 where
-    T: Deserialize<'de> + FromStr,//<Err = ()>,
+    T: Deserialize<'de> + FromStr, //<Err = ()>,
     D: Deserializer<'de>,
-    
 {
     struct StringOrStruct<T>(PhantomData<fn() -> T>);
 
     impl<'de, T> Visitor<'de> for StringOrStruct<T>
     where
-        T: Deserialize<'de> + FromStr,//<Err = ()>,
+        T: Deserialize<'de> + FromStr, //<Err = ()>,
     {
         type Value = T;
 
@@ -97,8 +92,8 @@ where
 
         fn visit_str<E: Error>(self, value: &str) -> Result<T, E> {
             match FromStr::from_str(value) {
-                Ok( s ) => Ok( s ),
-                _ => panic!()
+                Ok(s) => Ok(s),
+                _ => panic!(),
             }
             // Ok(.unwrap())
         }

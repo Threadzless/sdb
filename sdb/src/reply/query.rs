@@ -40,17 +40,17 @@ impl<'de> Visitor<'de> for QueryResultVisitor {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "result" => {
-                    result = Some(map.next_value()?);
+                    result = Some(map.next_value().expect("# # # i"));
                 }
                 "status" => {
-                    status = Some(map.next_value()?);
+                    status = Some(map.next_value().expect("# # # h"));
                 }
                 "time" => {
-                    let time_val: String = map.next_value()?;
+                    let time_val: String = map.next_value().expect("# # # g");
                     time = Some(parse_durration(time_val.as_str()));
                 }
                 "detail" => {
-                    detail = map.next_value()?;
+                    detail = map.next_value().expect("# # # j");
                 }
                 _ => {
                     println!(" Unknown {} => {:?}", k, map.next_value::<Value>().unwrap());

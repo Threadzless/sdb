@@ -1,13 +1,8 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{Value, from_value};
+use serde_json::{from_value, Value};
 use std::ops::{Deref, DerefMut};
 
-use crate::{
-    record_id::RecordId,
-    record::SurrealRecord
-};
-
-
+use crate::{record::SurrealRecord, record_id::RecordId};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AnyRecord {
@@ -36,7 +31,6 @@ impl<'de> Deserialize<'de> for AnyRecord {
 
 impl SurrealRecord for AnyRecord {
     fn id(&self) -> RecordId {
-        
         if let Value::Object( o ) = &self.val
         && let Some( id ) = o.get("id") {
             from_value(id.clone()).unwrap()
