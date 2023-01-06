@@ -75,15 +75,4 @@ impl ClientBuilder {
             _ => panic!("Protocol not recognised. did you enable the feature?"),
         }
     }
-
-    /// Build the client AND connect now.
-    pub async fn build_and_connect(self) -> SdbResult<SurrealClient> {
-        // let out = self.build()?;
-        // {
-        //     let mut lock = out.connect().write()?;
-        //     lock.connect_if_not( out.server() ).await?;
-        // }
-        // Ok( out )
-        todo!()
-    }
 }

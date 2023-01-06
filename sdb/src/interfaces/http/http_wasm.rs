@@ -59,8 +59,8 @@ impl SurrealInterface for HttpSurrealInterface {
             log::info!("    {} => {}", key, val );
         }
 
-        header_check("content-type", "application/json", headers.get("content-type"))?;
-        header_check("server", "SurrealDB", headers.get("server"))?;
+        // header_check("content-type", "application/json", headers.get("content-type"))?;
+        // header_check("server", "SurrealDB", headers.get("server"))?;
 
         match res.text().await {
             Ok( text ) => {

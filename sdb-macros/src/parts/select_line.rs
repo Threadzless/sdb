@@ -18,9 +18,9 @@ impl SelectQueryLine {
         use QueryResultScale::*;
 
         match &self.cast.scale {
-            Option(_to) => quote!(next_option()),
-            Single(_to) => quote!(next_one()),
-            Vec(_to) => quote!(next_vec()),
+            Option(_to) => quote!(next_one()),
+            Single(_to) => quote!(next_one_exact()),
+            Vec(_to) => quote!(next_list()),
         }
     }
 

@@ -36,16 +36,16 @@ impl WSSurrealInterface {
         if let Some(socket) = &mut self.socket {
             let req = SurrealRequest::use_ns_db(&info.namespace, &info.database);
             let msg = req.stringify().unwrap();
-            socket.send(Message::Text(msg)).await?;
+            socket.send(Message::Text(msg)).await.unwrap();
 
             if info.auth.is_some() {
                 let req = SurrealRequest::new_auth(&info);
                 let msg = req.stringify().unwrap();
-                socket.send(Message::Text(msg)).await?;
-                let _reply = socket.next().await.unwrap()?;
+                socket.send(Message::Text(msg)).await.unwrap();
+                let _reply = socket.next().await.unwrap().unwrap();
             }
 
-            let _reply = socket.next().await.unwrap()?;
+            let _reply = socket.next().await.unwrap().unwrap();
         }
 
         Ok(())
@@ -67,7 +67,7 @@ impl SurrealInterface for WSSurrealInterface {
 
     async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
         self.ensure_connected(info).await?;
-        let msg = request.stringify()?;
+        let msg = request.stringify();
 
         #[cfg(feature = "log")]
         log::trace!("Sending => {}", msg);
@@ -76,8 +76,8 @@ impl SurrealInterface for WSSurrealInterface {
         let socket = self.socket.as_mut().expect("Socket to be initialized");
 
         socket.send( msg ).await.unwrap();
-        let reply = socket.next().await.unwrap();
-        let Message::Text( txt ) = reply? else { panic!() };
+        let reply = socket.next().await.unwrap().unwrap();
+        let Message::Text( txt ) = reply else { panic!() };
 
         match from_str::<SurrealResponse>( &txt ) {
             Ok( result ) if ! result.check_id( &request.id ) => {

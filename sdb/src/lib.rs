@@ -1,5 +1,5 @@
 #![feature(let_chains, if_let_guard)]
-// #![allow(unused)]
+#![allow(unused)]
 
 /*!
 Surreal Data Base client

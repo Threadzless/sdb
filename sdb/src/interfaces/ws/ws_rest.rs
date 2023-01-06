@@ -53,7 +53,7 @@ impl WSSurrealInterface {
             let req = SurrealRequest::new_auth(server);
             let txt = serde_json::to_string(&req).unwrap();
             socket.send( Frame::text( txt ) ).await.unwrap();
-            recieve_next(socket).await.unwrap();
+            recieve_next(socket).await;
             self.connected_to = Some( server.clone() );
 
             Ok( () )
@@ -76,7 +76,7 @@ impl SurrealInterface for WSSurrealInterface {
             .await
             .unwrap();
 
-        let frame = recieve_next(socket).await?;
+        let frame = recieve_next(socket).await;
         
         let Frame::Text { payload, .. } = frame else {
             panic!("Recieved a Binary payload - WSSurrealInterface::send")
@@ -86,15 +86,8 @@ impl SurrealInterface for WSSurrealInterface {
         log::info!("SurrealDB response: \n{}", payload);
 
         let response = serde_json::from_str::<SurrealResponse>(&payload).unwrap();
-        match &response {
-            SurrealResponse::Error { error, .. } => {
-                return Err(SdbError::Surreal(error.message.clone()))
-            }
-            SurrealResponse::Result { id, ..} => {
-                if id.ne(&request.id) {
-                    panic!()
-                }
-            }
+        if response.check_id( &request.id ) {
+            unreachable!("Responses recieved out of order :( ");
         }
 
         Ok(response)
@@ -107,13 +100,13 @@ impl Debug for WSSurrealInterface {
     }
 }
 
-async fn recieve_next(sock: &mut WebSocket) -> Result<Frame, WebSocketError> {
+async fn recieve_next(sock: &mut WebSocket) -> Frame {
     loop {
-        let reply = sock.receive().await?;
+        let reply = sock.receive().await.unwrap();
         if let Frame::Text { .. } = reply {
-            return Ok(reply);
+            return reply;
         } else if let Frame::Binary { .. } = reply {
-            return Ok(reply);
+            return reply;
         }
     }
 }

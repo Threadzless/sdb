@@ -6,8 +6,9 @@ use crate::{error::SdbError, transaction::TransQuery};
 
 use super::QueryReply;
 
-// use crate::TransQuery;
 
+/// The result of one entire SurrealDB transaction. Queries are grouped into 
+/// transactions, even if you only use one.
 pub struct TransactionReply {
     pub(crate) index: usize,
     pub(crate) queries: Vec<TransQuery>,
@@ -15,7 +16,15 @@ pub struct TransactionReply {
 }
 
 impl TransactionReply {
-    pub(crate) fn new(queries: Vec<TransQuery>, replies: Vec<QueryReply>) -> Self {
+    pub(crate) fn new(queries: Vec<TransQuery>, mut replies: Vec<QueryReply>) -> Self {
+        let mut idx = 0;
+        for q in queries.iter() {
+            if ! q.skip {
+                replies.get_mut(idx).unwrap().query = Some( q.sql.clone() );
+                idx += 1;
+            }
+        }
+
         Self {
             index: 0,
             queries,
@@ -23,7 +32,19 @@ impl TransactionReply {
         }
     }
 
-    pub(crate) fn next_reply(&mut self) -> Result<(&mut QueryReply, &TransQuery), SdbError> {
+    fn next(&mut self) -> Result<(Value, &TransQuery), SdbError> {
+        let reply = self.next_result().result.take();
+        let idx = self.index - 1;
+        let query = self.queries.get( self.index - 1 )
+            .expect("Too many calls to TransactionReply::next_*.");
+
+            println!("\t{}\t=> {}", query.skip, query.sql);
+
+            Ok((reply, query))
+    }
+
+
+    pub fn next_result(&mut self) -> &mut QueryReply {
         while let Some( line ) = self.queries.get( self.index ) && line.skip {
             self.index += 1;
         }
@@ -31,43 +52,36 @@ impl TransactionReply {
         let reply = self.replies.get_mut(self.index)
             .expect("Too many calls to TransactionReply::next_*.");
 
-        let query = self.queries.get(self.index)
-            .expect("Too many calls to TransactionReply::next_*.");
-
         self.index += 1;
-        Ok((reply, query))
+        reply
     }
 
-    fn next(&mut self) -> Result<(Value, &TransQuery), SdbError> {
-        let (reply, query) = self.next_reply()?;
-        Ok((reply.result.take(), query))
-    }
-
-    pub fn next_vec<T>(&mut self) -> Result<Vec<T>, SdbError>
+    /// Get zero or more results
+    pub fn next_list<T>(&mut self) -> Result<Vec<T>, SdbError>
     where
         T: for<'de> Deserialize<'de>,
     {
-        let (value, query) = self.next()?;
+        let result = self.next_result();
 
-        match from_value::<Vec<T>>(value) {
+        match from_value::<Vec<T>>(result.result.take()) {
             Ok( v ) => Ok( v ),
             Err( err ) => {
-                Err( SdbError::QueryResultParseError {
-                    parse_target: std::any::type_name::<Vec<T>>().to_string(),
+                Err( SdbError::QueryResultParseFailure {
+                    target_type: std::any::type_name::<Vec<T>>().to_string(),
                     serde_err: err,
-                    query: query.sql.clone()
+                    query: result.query(),
                 } )
             }
         }
     }
 
-    pub fn next_option<T>(&mut self) -> Result<Option<T>, SdbError>
+    /// Get zero or one results 
+    pub fn next_one<T>(&mut self) -> Result<Option<T>, SdbError>
     where
         T: for<'de> Deserialize<'de>,
     {
-        let (value, query) = self.next()?;
-
-        let Value::Array(mut arr) = value else {
+        let result = self.next_result();
+        let Value::Array(mut arr) = result.result.take() else {
             panic!("Invalid input Transaction::next_option");
         };
 
@@ -78,26 +92,27 @@ impl TransactionReply {
         match from_value::<T>(first.take()) {
             Ok( v ) => Ok( Some( v ) ),
             Err( err ) => {
-                Err( SdbError::QueryResultParseError {
-                    parse_target: std::any::type_name::<Option<T>>().to_string(),
+                Err( SdbError::QueryResultParseFailure {
+                    target_type: std::any::type_name::<Option<T>>().to_string(),
                     serde_err: err,
-                    query: query.sql.clone()
+                    query: result.query(),
                 } )
             }
         }
     }
 
-    pub fn next_one<T>(&mut self) -> Result<T, SdbError>
+    /// Get exactly one result, or an error
+    pub fn next_one_exact<T>(&mut self) -> Result<T, SdbError>
     where
         T: for<'de> Deserialize<'de>,
     {
-        let (value, _query) = self.next()?;
+        let result = self.next_result();
 
-        let mut vals = from_value::<Vec<T>>(value).unwrap();
+        let mut vals: Vec<T> = result.parse();
         match vals.len() {
-            0 => Err(SdbError::UnexpectedEndOfInput(
-                "Expected one result, but found zero".to_string(),
-            )),
+            0 => Err(SdbError::ZeroQueryResults {
+                query: result.query(),
+            }),
             _ => Ok(vals.remove(0)),
         }
     }

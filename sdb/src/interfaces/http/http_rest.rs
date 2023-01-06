@@ -51,13 +51,9 @@ impl HttpSurrealInterface {
 impl SurrealInterface for HttpSurrealInterface {
     // fn send(&mut self, info: &ServerInfo, sql: String) -> Result<Vec<QueryReply>, SdbError> {
     async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
-
         let Some( Value::String( sql ) ) = request.params.get(0) else { panic!() };
-
-        let req = self.request(info, sql)?;
-
-        let res = req.send().await?;
-
+        let req = self.request(info, sql).unwrap();
+        let res = req.send().await.unwrap();
         let text = res.text().await.unwrap();
         match serde_json::from_str::<Vec<QueryReply>>( &text ) {
             Err( _err ) => panic!("Failed to parse"),

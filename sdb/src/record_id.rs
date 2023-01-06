@@ -6,6 +6,8 @@ use crate::{
     record::ToSurrealQL,
 };
 
+/// The `id` field of all SurrealDB records, and a
+/// 
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordId {
     table: String,
@@ -16,10 +18,12 @@ impl RecordId {
     /// TODO: check for spaces, too long, invalid characters, etc.
     pub fn parse(text: impl ToString) -> SdbResult<Self> {
         let text = text.to_string();
-        let (table, key) = text
-            .split_once(":")
-            .ok_or(SdbError::UnableToParseAsRecordId(text.clone()))?;
-        Ok(Self::new(table, key))
+        match text.split_once(":") {
+            Some((table, key)) => Ok(Self::new(table, key)),
+            None => Err( SdbError::UnableToParseAsRecordId { 
+                input: text.clone() 
+            }),
+        }
     }
 
     pub fn new(table: impl ToString, key: impl ToString) -> Self {

@@ -51,8 +51,8 @@ impl SurrealClient {
 
         let mut socket = self.inner.socket.lock().unwrap();
 
-        let response = socket.send(&self.inner.server, request);
-        match response.await.unwrap() {
+        let response = socket.send(&self.inner.server, request).await;
+        match response.unwrap() {
             SurrealResponse::Error { id, error } => {
                 if id.ne(&req_id) {
                     unreachable!(

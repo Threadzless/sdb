@@ -50,9 +50,8 @@ impl SocketRequest {
         req
     }
 
-    pub fn stringify(&self) -> SdbResult<String> {
-        serde_json::to_string(self)
-            .map_err(|e| SdbError::Serde( e ))
+    pub fn stringify(&self) -> String {
+        serde_json::to_string(self).unwrap()
     }
 
     pub fn new_auth( info: &ServerInfo ) -> Self {

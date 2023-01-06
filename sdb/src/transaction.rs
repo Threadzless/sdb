@@ -49,22 +49,6 @@ impl TransactionBuilder {
     /// Executes the queries and returns the results
     pub async fn run(self) -> SdbResult<TransactionReply> {
         let mut client = self.client.clone();
-
-        Ok(client.query(self).await?)
-    }
-
-    /// Executes the queries,
-    ///
-    /// then runs *`call`* on the results,
-    ///
-    /// then returns the output of *`call`*
-    pub async fn run_with<F, Out>(self, call: F) -> SdbResult<Out>
-    where
-        F: FnOnce(TransactionReply) -> SdbResult<Out>,
-    {
-        let mut client = self.client.clone();
-        let reply = client.query(self).await?;
-
-        call(reply)
+        client.query(self).await
     }
 }
