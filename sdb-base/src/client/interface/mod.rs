@@ -9,8 +9,8 @@ use crate::{
     server_info::ServerInfo
 };
 
-#[async_trait::async_trait(?Send)]
-pub trait SurrealInterface {
+#[async_trait::async_trait]
+pub trait SurrealInterface: Send + Sync {
     // fn setup( &mut self, callback: Box<dyn Fn( SurrealResponse ) -> ()> );
     // async fn ensure_connected(&mut self, server: &ServerInfo) -> SdbResult<()>;
     async fn send(&mut self, server: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse>;

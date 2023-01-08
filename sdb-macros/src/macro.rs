@@ -1,4 +1,4 @@
-#![feature(let_chains, if_let_guard, box_patterns)]
+#![feature(let_chains, if_let_guard, box_patterns, async_closure)]
 
 use proc_macro::TokenStream as TokenStreamOld;
 use proc_macro2::{Span, TokenStream};
@@ -6,9 +6,10 @@ use quote::{quote, ToTokens};
 use syn::{parse::*, punctuated::Punctuated, *};
 
 mod parts;
-
-
 use parts::*;
+
+mod query_test;
+use query_test::*;
 
 
 use proc_macro_error::proc_macro_error as proc_macro_error_call;
@@ -61,6 +62,9 @@ use proc_macro_error::proc_macro_error as proc_macro_error_call;
 pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
     let trans_func = parse_macro_input!(input as TransFunc);
 
+    query_check( &trans_func );
+
+
     let client = &trans_func.args.client;
     let trans = Ident::new("db_trans", Span::call_site());
 
@@ -99,6 +103,7 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 
         #unpack
     );
+
 
     #[cfg(feature = "macro-print")]
     println!("\n\n{out}\n\n");

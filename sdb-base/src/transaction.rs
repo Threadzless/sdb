@@ -1,3 +1,5 @@
+use std::thread::JoinHandle;
+
 use crate::{
     client::SurrealClient, error::SdbResult, record::ToSurrealQL, reply::TransactionReply,
 };
@@ -36,6 +38,14 @@ impl TransactionBuilder {
         self
     }
 
+    pub fn query_to_var(mut self, var_name: &str, query: impl ToString) -> Self {
+        self.queries.push(TransQuery {
+            sql: format!("LET ${var_name} = ({})", query.to_string()),
+            skip: true,
+        });
+        self
+    }
+
     pub(crate) fn queries(self) -> (Vec<TransQuery>, Vec<String>) {
         let sqls = self
             .queries
@@ -51,4 +61,10 @@ impl TransactionBuilder {
         let mut client = self.client.clone();
         client.query(self).await
     }
+
+    // pub fn run_blocking(self) -> JoinHandle<SdbResult<TransactionReply>> {
+    //     let mut client = self.client.clone();
+    //     client.query(self).
+
+    // }
 }

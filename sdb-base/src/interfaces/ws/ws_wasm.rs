@@ -61,7 +61,7 @@ impl SurrealInterfaceBuilder for WSSurrealInterface {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl SurrealInterface for WSSurrealInterface {
 
 
@@ -89,39 +89,4 @@ impl SurrealInterface for WSSurrealInterface {
             }
         }
     }
-
-    // async fn query(&mut self, info: &ServerInfo, sql: String) -> SdbResult<Vec<QueryReply>> {
-    //     self.connect_if_not(&info).await.unwrap();
-
-    //     // specify desired ns/db (header support not allowed)
-    //     //let sql = format!("USE NS {} DB {};\n{sql}", info.namespace, info.database);
-
-    //     let req = SocketRequest::query( sql );
-    //     let msg = req.stringify().unwrap();
-
-    //     #[cfg(feature = "log")]
-    //     log::trace!("Sending => {}", msg);
-
-    //     let msg = Message::Text( msg );
-    //     let socket = self.socket.as_mut().expect("Socket to be initialized");
-
-    //     socket.send( msg ).await.unwrap();
-    //     let reply = socket.next().await.unwrap();
-    //     let Message::Text( txt ) = reply? else { panic!() };
-
-    //     match from_str::<SocketResponse>( &txt ) {
-    //         Ok( result ) if ! result.check_id( &req.id ) => {
-    //             unimplemented!("Multi-query routing")
-    //         },
-    //         Ok( SocketResponse::Result { result, .. } ) => {
-    //             Ok( result )
-    //         },
-    //         Ok( SocketResponse::Error { .. } ) => {
-    //             todo!()
-    //         },
-    //         Err( err ) => {
-    //             Err( err.into() )
-    //         }
-    //     }
-    // }
 }

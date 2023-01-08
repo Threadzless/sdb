@@ -1,0 +1,2 @@
+[env]
+SURREAL_URL = "ws://test_user:test_pass@127.0.0.1:8000/example/demo"

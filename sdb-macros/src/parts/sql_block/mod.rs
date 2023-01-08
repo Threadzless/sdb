@@ -33,11 +33,7 @@ impl Parse for QuerySqlBlock {
 
 impl ToTokens for QuerySqlBlock {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let mut sql = self.sql.value();
-
-        for method in &self.methods {
-            method.apply_method_sql( &mut sql )
-        }
+        let sql = self.complete_sql();
 
         let sql_lit = LitStr::new(&sql, self.sql.span());
 
@@ -86,5 +82,15 @@ impl QuerySqlBlock {
                 help = "Try splitting the query into seperate query strings";
             )
         }
+    }
+
+    pub fn complete_sql( &self ) -> String {
+        let mut sql = self.sql.value();
+
+        for method in &self.methods {
+            method.apply_method_sql( &mut sql )
+        }
+
+        sql
     }
 }

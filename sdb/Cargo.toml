@@ -6,24 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1"
-serde = { version = "1.0", features = [ "derive" ] }
-serde_json = "1.0"
-base64 = { version = "0.20" }
-thiserror = "1.0"
-
+sdb-base = { path = "../sdb-base"}
 sdb-macros = { path = "../sdb-macros" }
 
 log = { version = "0.4", optional = true }
-
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
-reqwest = { version = "0.11", optional = true }
-websockets = { version = "0.3", optional = true }
-
-[target.'cfg(target_family = "wasm")'.dependencies]
-futures = "0.3.25"
-gloo-net = { version = "0.2", optional = true }
-wasm-sockets = { version = "1.0.0", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -37,17 +23,22 @@ default = [
     "log",
     "http",
     "ws",
+#    "query-test",
+]
+log = [
+    "dep:log",
+    "sdb-base/log",
 ]
 http = [ 
-    "gloo-net",
-    "reqwest",
+    "sdb-base/http",
 ]
 ws = [
-    # "gloo-net",
-    "wasm-sockets",
-    "websockets",
+    "sdb-base/http",
 ]
 tikv = [ ]
 macro-print = [
     "sdb-macros/macro-print",
+]
+query-test = [
+    "sdb-macros/query-test",
 ]

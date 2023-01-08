@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 use simplelog::*;
 
 async fn run() -> Result<(), SdbError> {
-    let client = SurrealClient::new("127.0.0.1:8000/example/demo")
-        .auth_basic("test_user", "test_pass")
-        .protocol(Protocol::Http)
+    let client = SurrealClient::new("ws://test_user:test_pass@127.0.0.1:8000/example/demo")
+        // .auth_basic("test_user", "test_pass")
+        // .protocol(Protocol::Http)
         .build()?;
 
     sdb::trans_act!( ( client ) => {

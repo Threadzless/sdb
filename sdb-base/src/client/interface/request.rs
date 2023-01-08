@@ -47,10 +47,11 @@ impl SurrealRequest {
             Some(Credentials::Basic { user, pass }) => {
                 vals.insert("user".to_string(), Value::String(user.clone()));
                 vals.insert("pass".to_string(), Value::String(pass.clone()));
-            }
+            },
+            None => { },
             _ => unimplemented!(
                 "That auth method is not currently compatible with socket connections"
-            ),
+            ),            
         }
 
         Self::new(id, "signin", vec![Value::Object(vals)])

@@ -16,6 +16,17 @@ proc-macro2 = "1.0"
 proc-macro-error = { version = "1" }
 serde = "1.0"
 
+sdb-base = { path = "../sdb-base", optional = true }
+tokio = { version = "1.24", optional = true }
+
+
 [features]
+default-features = [
+    # "query-test"
+]
 ## Prints the output of the macro at compile time. helpful for debugging 
-macro-print = []
+macro-print = [ ]
+query-test = [
+    "sdb-base",
+    "tokio",
+]

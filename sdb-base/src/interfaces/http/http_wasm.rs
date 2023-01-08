@@ -39,7 +39,7 @@ impl HttpSurrealInterface {
     }
 }
 
-#[async_trait(?Send)]
+#[async_trait]
 impl SurrealInterface for HttpSurrealInterface {
     
     async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {

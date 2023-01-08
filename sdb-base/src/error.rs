@@ -12,7 +12,7 @@ pub type SdbResult<T> = Result<T, SdbError>;
 
 
 // TODO: improve error system like a lot
-
+#[derive(Debug)]
 pub enum SdbError {
 
     UnableToParseAsRecordId {
@@ -40,6 +40,13 @@ pub enum SdbError {
     },
 
     NetworkTimeout,
+
+    ConnectionRefused {
+        url: String,
+    },
+
+    #[cfg(all(feature = "ws", not(target_family = "wasm")))]
+    WebsocketNetworkError( websockets::WebSocketError ),
 }
 
 impl std::error::Error for SdbError { }
@@ -47,19 +54,6 @@ impl std::error::Error for SdbError { }
 impl Display for SdbError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Debug::fmt(self, f)
-    }
-}
-
-impl Debug for SdbError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        match self {
-            Self::UnableToParseAsRecordId { input } => f.debug_struct("UnableToParseAsRecordId").field("input", input).finish(),
-            Self::QuerySyntaxError { query, message } => f.debug_struct("QuerySyntaxError").field("query", query).field("message", message).finish(),
-            Self::InvalidHostString { found } => f.debug_struct("InvalidHostString").field("found", found).finish(),
-            Self::QueryResultParseFailure { query, target_type, serde_err } => f.debug_struct("QueryResultParseFailure").field("query", query).field("target_type", target_type).field("serde_err", serde_err).finish(),
-            Self::ZeroQueryResults { query } => f.debug_struct("ZeroQueryResults").field("query", query).finish(),
-            Self::NetworkTimeout => write!(f, "NetworkTimeout"),
-        }
     }
 }
 
@@ -71,5 +65,26 @@ impl From<reqwest::Error> for SdbError {
         else {
             panic!("{value:?}")
         }
+    }
+}
+
+impl From<websockets::WebSocketError> for SdbError {
+
+    fn from(value: websockets::WebSocketError) -> Self {
+        SdbError::WebsocketNetworkError( value )
+        // use websockets::{WebSocketError as WsErr, };
+        // match value {
+        //     WsErr::TcpConnectionError( err ) => {
+        //         match err.kind() {
+        //             std::io::ErrorKind::ConnectionRefused => {
+        //                 SdbError::ConnectionRefused{
+        //                     url: err.
+        //                 }   
+        //             },
+        //             _ => SdbError::WebsocketNetworkError( value ),
+        //         }
+        //     },
+        //     _ => SdbError::NetworkError,
+        // }
     }
 }

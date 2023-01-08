@@ -44,6 +44,13 @@ impl Into<SurrealResponseResult> for SurrealResponse {
 
 
 impl SurrealResponse {
+    pub fn id(&self) -> String {
+        match self {
+            SurrealResponse::Result { id, .. } => id.clone(),
+            SurrealResponse::Error { id, .. } => id.clone(),
+        }
+    }
+
     pub fn check_id(&self, compare: &str) -> bool {
         match self {
             SurrealResponse::Result { id, .. } => id.eq(compare),

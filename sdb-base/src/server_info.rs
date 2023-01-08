@@ -37,10 +37,10 @@ impl ServerInfo {
         auth: Option<Credentials>,
     ) -> SdbResult<Self> {
         let mut me = Self::inner_parse(&conn_string.to_string())?;
-        if me.auth.is_none() {
+        if auth.is_some() {
             me.auth = auth;
         }
-        if let Some(p) = protocol {
+        if let Some(p) = protocol{
             me.protocol = p;
         }
 
@@ -87,17 +87,31 @@ impl ServerInfo {
                 found: main_url.to_string()
             });
         }
+        let mut auth = None;
         let mut parts = parts.iter();
-        let host = *parts.next().unwrap();
+        let mut host = *parts.next().unwrap();
         let ns = *parts.next().unwrap();
         let db = *parts.next().unwrap();
+
+        if let Some( (left, right) ) = host.split_once("@") {
+            if let Some( (user, pass) ) = left.split_once(":") {
+                auth = Some( Credentials::Basic { 
+                    user: user.to_string(),
+                    pass: pass.to_string()
+                });
+                host = right;
+            }
+            else {
+                unimplemented!("Non-user + pass authentication method")
+            }
+        }
 
         let con = ServerInfo {
             hostname: host.to_string(),
             namespace: ns.to_string(),
             database: db.to_string(),
             protocol,
-            auth: None,
+            auth,
         };
 
         Ok(con)

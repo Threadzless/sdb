@@ -34,5 +34,8 @@ sdb::trans_act!( ( client, 55_000 ) => {
    - ✅ Error routing
    - 🚧 Syntax helper
    - 🚧 Query helper methods
+   - 🚧 Compile time query validation against db
+     - 🚧 Query syntx validity
+     - ❌ Result parse successfull
    - ❌ Check var presence
  - ❌ Websocket Event recievers

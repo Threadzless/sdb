@@ -32,9 +32,10 @@ impl ToTokens for LetQueryLine {
         tokens.extend(match &self.input {
             Query(query) => {
                 let base_sql = &query.sql;
-                let sql = format!("LET ${} = ({})", self.var, base_sql.value());
-                let sql_lit = LitStr::new(&sql, base_sql.span());
-                quote!( .push( true, #sql_lit ) )
+                let sql_lit = LitStr::new(&base_sql.value(), base_sql.span());
+                quote!( 
+                    .query_to_var( #var, #sql_lit )
+                )
             }
             Block(expr) => quote!(
                 .push_var( #var, #expr )

@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-
+use tokio::sync::RwLock;
 use crate::{
     // protocols::SdbProtocol,
     client::{ClientBuilder, SurrealInterface},
@@ -28,7 +28,7 @@ impl SurrealClient {
     pub(crate) fn build<I: SurrealInterfaceBuilder + 'static>(
         server: ServerInfo,
     ) -> SdbResult<Self> {
-        let socket = Box::new(Mutex::new(I::new(&server)?));
+        let socket = Box::new(RwLock::new(I::new(&server)?));
 
         let inner = Arc::new(ClientInner {
             socket,
@@ -49,10 +49,10 @@ impl SurrealClient {
         let request = SurrealRequest::query(full_sql);
         let req_id = request.id.clone();
 
-        let mut socket = self.inner.socket.lock().unwrap();
+        let mut socket = self.inner.socket.write().await;
 
-        let response = socket.send(&self.inner.server, request).await;
-        match response.unwrap() {
+        let response = socket.send(&self.inner.server, request).await?;
+        match response {
             SurrealResponse::Error { id, error } => {
                 if id.ne(&req_id) {
                     unreachable!(
@@ -89,6 +89,6 @@ impl SurrealClient {
 unsafe impl Sync for ClientInner { }
 unsafe impl Send for ClientInner { }
 pub struct ClientInner {
-    socket: Box<Mutex<dyn SurrealInterface>>,
+    socket: Box<RwLock<dyn SurrealInterface>>,
     server: ServerInfo,
 }

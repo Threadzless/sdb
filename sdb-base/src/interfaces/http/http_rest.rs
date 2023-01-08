@@ -47,7 +47,7 @@ impl HttpSurrealInterface {
 }
 
 // #[cfg(not( target_family = "wasm"))]
-#[async_trait(?Send)]
+#[async_trait]
 impl SurrealInterface for HttpSurrealInterface {
     // fn send(&mut self, info: &ServerInfo, sql: String) -> Result<Vec<QueryReply>, SdbError> {
     async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
@@ -56,7 +56,10 @@ impl SurrealInterface for HttpSurrealInterface {
         let res = req.send().await.unwrap();
         let text = res.text().await.unwrap();
         match serde_json::from_str::<Vec<QueryReply>>( &text ) {
-            Err( _err ) => panic!("Failed to parse"),
+            Err( _err ) => {
+                println!("\n\n{sql}\n\n{text}\n\n");
+                panic!("Failed to parse")  
+            },
             Ok( replies ) => Ok(
                 SurrealResponse::Result {
                     id: request.id, 
@@ -64,7 +67,5 @@ impl SurrealInterface for HttpSurrealInterface {
                 }
             )
         }
-
-        // todo!()
     }
 }

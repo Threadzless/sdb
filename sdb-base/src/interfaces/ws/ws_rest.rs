@@ -40,7 +40,7 @@ impl WSSurrealInterface {
         match &mut self.builder {
             Some(builder) => {
                 let url = server.full_url();
-                let socket = builder.connect(&url).await.unwrap();
+                let socket = builder.connect(&url).await?;
                 self.builder = None;
                 self.socket = Some(socket);
             }
@@ -64,7 +64,10 @@ impl WSSurrealInterface {
     }
 }
 
-#[async_trait::async_trait(?Send)]
+unsafe impl Send for WSSurrealInterface { } 
+unsafe impl Sync for WSSurrealInterface { }
+
+#[async_trait::async_trait]
 impl SurrealInterface for WSSurrealInterface {
     async fn send(&mut self, server: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
         self.ensure_connected(server).await?;
@@ -86,7 +89,8 @@ impl SurrealInterface for WSSurrealInterface {
         log::info!("SurrealDB response: \n{}", payload);
 
         let response = serde_json::from_str::<SurrealResponse>(&payload).unwrap();
-        if response.check_id( &request.id ) {
+        if ! response.check_id( &request.id ) {
+            println!("\n\n{payload}\n\n{:?} =/= {:?}\n\n", request.id, response.id());
             unreachable!("Responses recieved out of order :( ");
         }
 
