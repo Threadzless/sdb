@@ -9,10 +9,10 @@ async fn run() -> Result<(), SdbError> {
         .build()?;
 
     sdb::trans_act!( ( client ) => {
-        $longest = "SELECT * FROM books ORDER word_count DESC";
+        $longest = "SELECT * FROM books ORDER word_count DESC FETCH bleep";
 
-        mut longest_titles: Vec<String> =
-            pluck("title") "SELECT * FROM $longest LIMIT 3";
+        longest_title: String =
+            pluck("title", 3) "SELECT * FROM $longest";
 
         long_count: i32 = count() "$longest";
 
@@ -21,8 +21,7 @@ async fn run() -> Result<(), SdbError> {
 
 
 
-    longest_titles.push("Blah blab".to_string());
-    println!("Longest books: {:?}\n", longest_titles);
+    println!("Longest books: {:?}\n", longest_title);
 
     println!("All books (ever) {}:", long_count);
     for s in stories {
