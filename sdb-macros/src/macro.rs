@@ -132,7 +132,7 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     let mut out_types = TokenStream::new();
     let mut out_calls = Vec::new();
     let mut unpack = TokenStream::new();
-    let push_steps = query_func.args.field_assigns();
+    let mut push_steps = query_func.args.field_assigns();
 
     let select = &query_func.line;
     let var_type = &select.cast;
@@ -141,6 +141,8 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     out_calls.push(quote! { #trans . #call ? });
     out_types.extend_list(quote! { #var_type }, quote!{ , });
     unpack.extend_list(quote! { #trans . #call ? }, quote!{ , });
+
+    push_steps.extend(quote! { #select });
 
     let last = match query_func.async_tok {
         None => quote!( . await ),
