@@ -37,25 +37,12 @@ impl DerefMut for QueryMethod {
 
 impl Parse for QueryMethod {
     fn parse(input: ParseStream) -> Result<Self> {
-        // let context;
         Ok(Self {
             call: input.parse()?,
-            // func: input.parse()?,
-            // _paren: parenthesized!(context in input),
-            // args: context.parse_terminated( Expr::parse )?,
         })
     }
 }
 
-
-// impl ToTokens for QueryMethod {
-    
-//     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-//         let func = &self.func;
-//         let args = &self.args;
-//         tokens.extend( quote!{ #func ( #args ) } )
-//     }
-// }
 
 impl QueryMethod {
     pub fn name(&self) -> String {

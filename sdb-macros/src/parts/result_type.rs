@@ -19,7 +19,7 @@ const ERROR_HELP: &str = r#"Only types which implement serde::Deserialise are va
 
 #[derive(Debug)]
 pub(crate) struct QueryResultType {
-    pub _colon: Colon,
+    // pub _colon: Colon,
     pub scale: QueryResultScale,
 }
 
@@ -37,29 +37,29 @@ impl QueryResultType {
 impl Parse for QueryResultType {
     fn parse(input: ParseStream) -> Result<Self> {
         use QueryResultScale as Qrs;
-        let colon: Colon = input.parse()?;
+        // let colon: Colon = input.parse()?;
 
-        // // Brackets are a shortcut for Option< T >
-        // if let Some( ( punct, _) ) = input.cursor().punct()
-        //     && punct.as_char() == '<'
-        //     && let Ok( brack ) = input.parse::<AngleBracketedGenericArguments>()
-        //     && brack.args.len() == 1
-        //     && let GenericArgument::Type( first_arg ) = brack.args.first().unwrap()
-        // {
-        //     if let Type::Infer( inf ) = first_arg {
-        //         return Ok(Self {
-        //             _colon: colon,
-        //             scale: Qrs::Option( value_ty_path( inf ) )
-        //         })
-        //     }
-        //
-        //     if let Type::Path( ty_path ) = first_arg {
-        //         return Ok(Self {
-        //             _colon: colon,
-        //             scale: Qrs::Option( ty_path.clone() )
-        //         })
-        //     }
-        // }
+        // Brackets are a shortcut for Option< T >
+        if let Some( ( punct, _) ) = input.cursor().punct()
+            && punct.as_char() == '<'
+            && let Ok( brack ) = input.parse::<AngleBracketedGenericArguments>()
+            && brack.args.len() == 1
+            && let GenericArgument::Type( first_arg ) = brack.args.first().unwrap()
+        {
+            if let Type::Infer( inf ) = first_arg {
+                return Ok(Self {
+                    // _colon: colon,
+                    scale: Qrs::Option( value_ty_path( inf ) )
+                })
+            }
+        
+            if let Type::Path( ty_path ) = first_arg {
+                return Ok(Self {
+                    // _colon: colon,
+                    scale: Qrs::Option( ty_path.clone() )
+                })
+            }
+        }
 
         let in_type = match input.parse::<Type>() {
             Ok(v) => v,
@@ -77,19 +77,19 @@ impl Parse for QueryResultType {
         match in_type {
             Type::Infer( inf ) => {
                 Ok(Self {
-                    _colon: colon,
+                    // _colon: colon,
                     scale: Qrs::Single( value_ty_path(&inf) )
                 })
             },
             Type::Slice( TypeSlice { elem: box Type::Infer( inf ), .. } ) => {
                 Ok( Self {
-                    _colon: colon,
+                    // _colon: colon,
                     scale: Qrs::Vec( value_ty_path(&inf) ),
                 })
             },
             Type::Slice( TypeSlice { elem: box Type::Path( path ), .. } ) => {
                 Ok( Self {
-                    _colon: colon,
+                    // _colon: colon,
                     scale: Qrs::Vec( path.clone() ),
                 })
             },
@@ -103,15 +103,21 @@ impl Parse for QueryResultType {
             {
                 let out_str = outer.ident.to_string();
                 match out_str.as_str() {
-                    "Vec" => Ok( Self { _colon: colon, scale: Qrs::Vec( ty ), }),
-                    "Option" => Ok( Self { _colon: colon, scale: Qrs::Option( ty ), }),
+                    "Vec" => Ok( Self { 
+                        // _colon: colon,
+                        scale: Qrs::Vec( ty ), 
+                    }),
+                    "Option" => Ok( Self {
+                        // _colon: colon,
+                        scale: Qrs::Option( ty ), 
+                    }),
                     _ => panic!("OTUSFDJD")
                 }
             },
 
             Type::Path( path ) => {
                 Ok(Self {
-                    _colon: colon,
+                    // _colon: colon,
                     scale: Qrs::Single( path )
                 })
             }

@@ -22,7 +22,8 @@ tokio = { version = "1.24", optional = true }
 
 [features]
 default-features = [
-    # "query-test"
+    # "query-test",
+    # "macro-print",
 ]
 ## Prints the output of the macro at compile time. helpful for debugging 
 macro-print = [ ]

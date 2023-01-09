@@ -11,6 +11,9 @@ use parts::*;
 mod query_test;
 use query_test::*;
 
+mod inc_stream;
+#[allow(unused)]
+use inc_stream::*;
 
 use proc_macro_error::proc_macro_error as proc_macro_error_call;
 
@@ -70,7 +73,6 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 
     let result_act = trans_func.result_act();
 
-    // let mut out_vars = TokenStream::new();
     let mut out_types = Vec::new();
     let mut out_calls = Vec::new();
     let mut unpack = TokenStream::new();
@@ -85,7 +87,6 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 
             out_calls.push(quote! { #trans . #call ? });
             out_types.push(quote! { #var_type });
-            // out_vars.extend_list(quote! { #mut_token #var_name }, quote! { , });
             unpack.extend(
                 quote! { let #mut_token #var_name: #var_type = #trans . #call #result_act; },
             );
@@ -112,11 +113,63 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 }
 
 //
+
+// --
+
+//
+
+#[proc_macro_error_call]
+#[proc_macro]
+pub fn query(input: TokenStreamOld) -> TokenStreamOld {
+    let query_func = parse_macro_input!(input as QueryFunc);
+
+    // query_check( &query_func );
+
+    let client = &query_func.args.client;
+    let trans = Ident::new("db_trans", Span::call_site());
+
+    // let mut out_vars = TokenStream::new();
+    let mut out_types = TokenStream::new();
+    let mut out_calls = Vec::new();
+    let mut unpack = TokenStream::new();
+    let push_steps = query_func.args.field_assigns();
+
+    let select = &query_func.line;
+    let var_type = &select.cast;
+    let call = select.method_call();
+
+    out_calls.push(quote! { #trans . #call ? });
+    out_types.extend_list(quote! { #var_type }, quote!{ , });
+    unpack.extend_list(quote! { #trans . #call ? }, quote!{ , });
+
+    let last = match query_func.async_tok {
+        None => quote!( . await ),
+        Some(_) => quote!(),
+    };
+
+    let out = match &select.cast.scale {
+        QueryResultScale::Single( _ty ) => todo!(),
+        QueryResultScale::Option( _ty ) => todo!(),
+        QueryResultScale::Vec( ty ) => quote!{
+            #client . transaction( )
+            #push_steps
+            .run_parse_list::< #ty >( )
+            #last
+        },
+    };
+
+    #[cfg(feature = "macro-print")]
+    println!("\n\n{out}\n\n");
+
+    out.into()
+}
+
+//
 //
 //
 
 #[proc_macro_error_call]
-#[proc_macro_derive(SurrealRecord)]
+#[proc_macro_derive(SurrealRecord, attributes(table))]
 pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
     let obj = parse_macro_input!(input as DeriveInput);
 
@@ -221,5 +274,8 @@ impl QueryLine {
         Some(quote! {
             let #into: #cast_type = #transact . #method_call #err ;
         })
+        // Some(quote! {
+        //     #transact . #method_call #err ;
+        // })
     }
 }

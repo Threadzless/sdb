@@ -11,9 +11,11 @@ use sdb_base::{
     reply::{query, TransactionReply}
 };
 
+
+/// If `query-test` feature is enabled, run the query with generic inputs once, to ensure
+/// it is syntactically correct.
 #[cfg(not(feature = "query-test"))]
 pub(crate) fn query_check( _func: &TransFunc ) { }
-
 
 
 #[cfg(feature = "query-test")]
@@ -22,7 +24,7 @@ pub(crate) fn query_check( func: &TransFunc ) {
     use quote::ToTokens;
     use tokio::{task::{spawn_blocking, block_in_place}, spawn, runtime::Handle};
 
-    use crate::parts::{TransFunc, LetQueryLine, LetQueryInput};
+    use crate::parts::{QueryFunc, LetQueryLine, LetQueryInput};
 
     if let Ok( no_test ) = var("SURREAL_NO_TEST") && no_test.ne("1") {
         return;

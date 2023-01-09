@@ -5,21 +5,46 @@ An unofficial client for SurrealDB designed to work with [`yew`](https://yew.rs/
 WIP, so don't use in production, but if you try it out please report errors, unhelpful error messages, missing features, documentation, glitches.
 
 # Example
-
+Taken from `sdb/examples/demo.rs`:
 ```rust,no_run
-use sdb::*;
+use sdb::prelude::*;
+use serde::{Serialize, Deserialize};
 
-let client = SurrealClient::new("127.0.0.1:8000/example/demo").build().unwrap();
+#[tokio::main]
+async fn main() -> Result<(), SdbError> {
+    let client = SurrealClient::new("ws://test_user:test_pass@127.0.0.1:8000/example/demo")
+        .build()?;
 
-sdb::trans_act!( ( client, 55_000 ) => {
-    $ordered_books = "SELECT * FROM books ORDER BY word_count DESC";
+    // Run some queries
+    sdb::trans_act!( ( client ) => {
+        $longest = "SELECT * FROM books ORDER word_count DESC FETCH bleep";
 
-    long_books: Vec<BookSchema> =
-        "SELECT * FROM $ordered_books WHERE word_count > $0";
+        longest_title: String =
+            pluck("title", 1) "SELECT * FROM $longest";
 
-    longest_book_chapter: Vec<ChapterSchema> =
-        "SELECT * FROM $ordered_books->parts->chapters ORDER BY index";
-})
+        long_count: i32 = count() "$longest";
+
+        stories: Vec<BookSchema> = "SELECT * FROM $longest";
+    });
+
+    // Print results
+    println!("");
+    println!("Longest books: {:?}\n", longest_title);
+    println!("All books (ever) {}:", long_count);
+    for s in stories {
+        println!("  {}", s.title)
+    }
+
+    Ok( () )
+}
+
+#[derive(Clone, Serialize, Deserialize, SurrealRecord)]
+#[table("books")]
+pub struct BookSchema {
+    pub id: RecordId,
+    pub title: String,
+    pub word_count: Option<usize>,
+}
 ```
 
 ### Features

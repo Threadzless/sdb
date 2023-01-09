@@ -1,5 +1,7 @@
 use std::thread::JoinHandle;
 
+use serde::Deserialize;
+
 use crate::{
     client::SurrealClient, error::SdbResult, record::ToSurrealQL, reply::TransactionReply,
 };
@@ -60,6 +62,30 @@ impl TransactionBuilder {
     pub async fn run(self) -> SdbResult<TransactionReply> {
         let mut client = self.client.clone();
         client.query(self).await
+    }
+
+    
+    pub async fn run_parse_list<T>(self) -> SdbResult<Vec<T>>
+    where T: for<'de> Deserialize<'de>
+    {
+        let mut reply = self.run() . await ?;
+        reply.next_list::<T>()
+    }
+
+    
+    pub async fn run_parse_one<T>(self) -> SdbResult<Option<T>>
+    where T: for<'de> Deserialize<'de>
+    {
+        let mut reply = self.run() . await ?;
+        reply.next_one::<T>()
+    }
+
+    
+    pub async fn run_parse_one_exact<T>(self) -> SdbResult<T>
+    where T: for<'de> Deserialize<'de>
+    {
+        let mut reply = self.run() . await ?;
+        reply.next_one_exact::<T>()
     }
 
     // pub fn run_blocking(self) -> JoinHandle<SdbResult<TransactionReply>> {
