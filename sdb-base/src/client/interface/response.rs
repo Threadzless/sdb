@@ -14,13 +14,13 @@ pub struct SurrealResponseError {
 #[derive(Deserialize)]
 #[serde(untagged)]
 pub enum SurrealResponse {
-    Result {
-        id: String,
-        result: Option<Vec<QueryReply>>,
-    },
     Error {
         id: String,
         error: SurrealResponseError,
+    },
+    Result {
+        id: String,
+        result: Option<Vec<QueryReply>>,
     },
 }
 
