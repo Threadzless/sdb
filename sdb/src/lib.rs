@@ -229,3 +229,10 @@ sdb::trans_act( (client, search_term) => {
 pub use sdb_macros::*;
 
 pub use sdb_base::*;
+
+pub mod prelude {
+    pub use sdb_base::prelude::*;
+    pub use sdb_macros::{
+        SurrealRecord
+    };
+}
