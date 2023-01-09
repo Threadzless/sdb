@@ -8,8 +8,10 @@ async fn run() -> Result<(), SdbError> {
     let client = SurrealClient::new("ws://test_user:test_pass@127.0.0.1:8000/example/demo")
         .build()?;
 
-    // Run a query
+    // Run a query on `client`
     let books_by_george = sdb::query!( (client, "George") => 
+        // $0 is the refers to the first var aside from client. Vars can be either 
+        // literals or expressions, and will be named in order of occurance
         Vec<BookSchema> = "SELECT * FROM books WHERE <-wrote<-authors.name ?~ $0" 
     );
 
@@ -22,15 +24,27 @@ async fn run() -> Result<(), SdbError> {
         println!("  {}\t{}", s.title, s.word_count.unwrap_or_default())
     }
 
+
+
     // Spacing for terminal ease of reading
     println!("");
 
+
+
     // Run a transaction (errors are automatically bubbled)
     sdb::trans_act!( ( client ) => {
+        // Store results of a query in a transaction variable.
+        // Queries that follow can act on these results
         $longest = "SELECT * FROM books ORDER word_count DESC";
-        longest_title: String = pluck("title", 1) "SELECT * FROM $longest";
+
+        // Get just the title of the first result of `$longest`
+        longest_title: String = pluck("title", 1) "$longest";
+
+        // Get the number of books in total
         long_count: i32 = count() "$longest";
-        stories: Vec<BookSchema> = "SELECT * FROM $longest";
+
+        // Retrieve all of the books
+        stories: Vec<BookSchema> = "SELECT * FROM books";
     });
 
     // Print results
