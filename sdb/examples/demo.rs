@@ -71,7 +71,7 @@ pub struct BookSchema {
 fn main() {
     // Logging
     TermLogger::init(
-        LevelFilter::Info,
+        LevelFilter::Warn,
         Config::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,
