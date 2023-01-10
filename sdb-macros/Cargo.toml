@@ -15,9 +15,12 @@ quote = "1.0"
 proc-macro2 = "1.0"
 proc-macro-error = { version = "1" }
 serde = "1.0"
+regex = "*"
 
 sdb-base = { path = "../sdb-base", optional = true }
 tokio = { version = "1.24", optional = true }
+
+
 
 [dev-dependencies]
 # sdb = { path = "../sdb" }

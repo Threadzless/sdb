@@ -9,10 +9,12 @@ mod parts;
 use parts::*;
 
 mod query_test;
-use query_test::*;
 
 mod inc_stream;
 use inc_stream::*;
+
+mod syntaxer;
+pub(crate) use syntaxer::*;
 
 use proc_macro_error::proc_macro_error as proc_macro_error_call;
 
@@ -59,8 +61,15 @@ use proc_macro_error::proc_macro_error as proc_macro_error_call;
 pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
     let trans_func = parse_macro_input!(input as TransFunc);
 
-    query_check( &trans_func );
-
+    let vars = trans_func.arg_vars();
+    let queries = trans_func.full_queries( );
+    match check_syntax(&vars, &queries) {
+        Ok(_) => {
+            #[cfg(feature = "query-test")]
+            query_test::live_query_test( trans_func )
+        },
+        Err(_) => { }
+    }
 
     let client = &trans_func.args.client;
     let trans = Ident::new("db_trans", Span::call_site());

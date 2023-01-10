@@ -1,8 +1,10 @@
 #![allow(unused_imports)]
 
-use std::env::var;
+use std::{env::var, fmt::{Display, Debug}};
 use proc_macro2::Span;
-use proc_macro_error::emit_warning;
+use proc_macro_error::{emit_warning, emit_error};
+use regex::Regex;
+use syn::LitStr;
 use crate::parts::TransFunc;
 
 #[cfg(feature = "query-test")]
@@ -12,14 +14,10 @@ use sdb_base::{
 };
 
 
-/// If `query-test` feature is enabled, run the query with generic inputs once, to ensure
-/// it is syntactically correct.
-#[cfg(not(feature = "query-test"))]
-pub(crate) fn query_check( _func: &TransFunc ) { }
 
 
 #[cfg(feature = "query-test")]
-pub(crate) fn query_check( func: &TransFunc ) {
+pub(crate) fn live_query_test( func: &TransFunc ) {
     use sdb_base::transaction::TransactionBuilder;
     use quote::ToTokens;
     use tokio::{task::{spawn_blocking, block_in_place}, spawn, runtime::Handle};
