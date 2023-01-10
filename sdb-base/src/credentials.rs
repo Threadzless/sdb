@@ -2,7 +2,7 @@ use base64::encode;
 use std::fmt::Debug;
 
 /// The information required to log into the SurrealDB instance.
-/// 
+///
 /// TODO: implement Token and Digest methods
 #[derive(Clone, Debug, PartialEq)]
 pub enum Credentials {

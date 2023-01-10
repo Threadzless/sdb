@@ -1,8 +1,5 @@
 use std::fmt::{Debug, Formatter, Result};
 
-
-
-
 pub struct SqlErrorPointer<'a> {
     sql: &'a str,
     arrow_line: String,
@@ -13,13 +10,10 @@ impl<'a> SqlErrorPointer<'a> {
         let mut arrow_line = String::with_capacity(sql.len());
         arrow_line.push_str("  ");
 
-        Self {
-            sql,
-            arrow_line,
-        }
+        Self { sql, arrow_line }
     }
 
-    pub fn tick(mut self, space: usize, arrow: usize ) -> Self {
+    pub fn tick(mut self, space: usize, arrow: usize) -> Self {
         let start = self.arrow_line.chars().count() - 2;
         for _ in start..space {
             self.arrow_line.push('\u{00a0}');

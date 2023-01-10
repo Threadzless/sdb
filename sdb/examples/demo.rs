@@ -8,10 +8,10 @@ async fn run() -> Result<(), SdbError> {
     let client = SurrealClient::demo().unwrap();
 
     // Run a query on `client`
-    let books_by_george = sdb::query!( (client, "George") => 
-        // $0 is the refers to the first var aside from client. Vars can be either 
+    let books_by_george = sdb::query!( (client, "George") =>
+        // $0 is the refers to the first var aside from client. Vars can be either
         // literals or expressions, and will be named in order of occurance
-        Vec<BookSchema> = "SELECT * FROM books WHERE <-wrote<-authors.name ?~ $0" 
+        Vec<BookSchema> = "SELECT * FROM books WHERE <-wrote<-authors.name ?~ $0"
     );
 
     // List results
@@ -20,12 +20,8 @@ async fn run() -> Result<(), SdbError> {
         println!("  {}\t{}", s.title, s.word_count.unwrap_or_default())
     }
 
-
-
     // Spacing for terminal ease of reading
     println!("");
-
-
 
     // Run a transaction (errors are automatically bubbled)
     sdb::trans_act!( ( client ) => {
@@ -78,7 +74,7 @@ fn main() {
     )
     .unwrap();
 
-    // run async     
+    // run async
     let pool = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

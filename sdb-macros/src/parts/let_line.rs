@@ -33,7 +33,7 @@ impl ToTokens for LetQueryLine {
             Query(query) => {
                 let base_sql = &query.sql;
                 let sql_lit = LitStr::new(&base_sql.value(), base_sql.span());
-                quote!( 
+                quote!(
                     .query_to_var( #var, #sql_lit )
                 )
             }

@@ -1,4 +1,3 @@
-
 /*!
 Surreal Data Base client
 =========================
@@ -16,12 +15,12 @@ Also, for the example code, assume the following unless stated otherwise:
  - The code is in an `async` scope (See the [Rust Async Book](https://rust-lang.github.io/async-book/01_getting_started/01_chapter.html))
  - The demo database is running (run `./launch-demo-db.sh`)
 
-The code can still work if only the `async` condition is met, but the demo database 
+The code can still work if only the `async` condition is met, but the demo database
 makes trying out examples easy.
 
-## Basics 
+## Basics
 The [`sdb`] crate comes with two macros for processing queries:
- - [`query!`], for executing a single query 
+ - [`query!`], for executing a single query
  - [`trans_act!`] for execugin multiple queries together
 
 ### [`query!`] Example
@@ -29,13 +28,13 @@ The [`sdb`] crate comes with two macros for processing queries:
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 #    let client = SurrealClient::demo()?;
 #
 #    let search_terms = "StarTrek";
-# 
-let trek_books = sdb::query!{ (client, search_terms) => 
+#
+let trek_books = sdb::query!{ (client, search_terms) =>
     Vec<BookSchema> = "SELECT * FROM books WHERE title ~ $0"
 };
 
@@ -54,19 +53,19 @@ println!("There are {} books about StarTrek", trek_books.len());
 #     pub word_count: Option<usize>,
 # }
 ```
-These work basically the same, except [`query!`] can only execute a single query and 
+These work basically the same, except [`query!`] can only execute a single query and
 return a single result. Attempting to put multiple expressions by seperating them with
 semicolons (`;`) will result in compile errors.
 
-The advantage to [`query!`] over [`trans_act!`] is that it currently has a 
-way to return a [`std::future::Future`] which resolves the query result. 
+The advantage to [`query!`] over [`trans_act!`] is that it currently has a
+way to return a [`std::future::Future`] which resolves the query result.
 See  [Error Handeling](# Error Handeling) for details
 
 ### [`trans_act!`] Example
-The [`trans_act!`] macro is very similar to the [`query!`] macro, but with the added bonus 
+The [`trans_act!`] macro is very similar to the [`query!`] macro, but with the added bonus
 of being able to execute multiple queries and return multiple results.
 
-The down side is that there is not a built in way to manage errors, so you must wrap the 
+The down side is that there is not a built in way to manage errors, so you must wrap the
 macro call in an `async` function which return a [`Result<, SdbError>`] for it to
 compile.
 
@@ -74,7 +73,7 @@ compile.
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 let client = SurrealClient::demo()?;
 
@@ -118,7 +117,7 @@ be seperated by semicolon (`;`) to compile.
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 # let client = SurrealClient::demo().unwrap();
 sdb::trans_act!( ( client, 50_000 ) => {
@@ -165,7 +164,7 @@ Each query in a transaction must do one of the following to its results:
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 #     let client = SurrealClient::demo().unwrap();
     sdb::trans_act!( ( client ) => {
@@ -185,7 +184,7 @@ Each query in a transaction must do one of the following to its results:
 # tokio_test::block_on( async {
 #     test_main().await.unwrap()
 # });
-# 
+#
 # #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
@@ -202,7 +201,7 @@ variable name, like so:
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 #     let client = SurrealClient::demo().unwrap();
     sdb::trans_act!( ( client, 50_000 ) => {
@@ -229,21 +228,21 @@ variable name, like so:
 
 ## Error handeling
 For [`trans_act!`], all [`Result`](core::result::Result)s are bubbled (`?`) and this
-currently cannot be changed. To catch errors, wrap the macro call in a method 
+currently cannot be changed. To catch errors, wrap the macro call in a method
 which returns a [`SdbResult`](sdb_base::prelude::SdbResult)
 
-For [`query!`], you can insert an exclimation mark to disable bubbling 
+For [`query!`], you can insert an exclimation mark to disable bubbling
 the errors by default
 ```rust
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # tokio_test::block_on( async {
 # let client = SurrealClient::demo().unwrap();
     //        Don't bubble errors ---|
     //                               v
-    let longest_books = sdb::query!( ! ( client, 25 ) => 
+    let longest_books = sdb::query!( ! ( client, 25 ) =>
             Vec<BookSchema> = "SELECT * FROM books LIMIT $0"
         );
 
@@ -260,7 +259,7 @@ the errors by default
 #     pub word_count: Option<usize>,
 # }
 ```
-For [`trans_act!`], all errors are 
+For [`trans_act!`], all errors are
 
 
 ## Transaction variables
@@ -318,7 +317,7 @@ extract the `name` field from the first 3 records, and store them as a [`Vec<Str
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 # let client = SurrealClient::demo().unwrap();
 sdb::trans_act!( (client) => {
@@ -393,7 +392,7 @@ Common usage:
 # use sdb_base::prelude::*;
 # use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
-# 
+#
 # async fn test_main() -> SdbResult<()> {
 # let client = SurrealClient::demo().unwrap();
     let search_term = "StarTrek";
@@ -426,14 +425,11 @@ pub use sdb_base::*;
 
 pub mod prelude {
     pub use sdb_base::prelude::*;
-    pub use sdb_macros::{
-        SurrealRecord
-    };
+    pub use sdb_macros::SurrealRecord;
 }
-
 
 // documentation links
 #[allow(unused_imports)]
-use sdb_base::prelude::*;
-#[allow(unused_imports)]
 use sdb_base as sdb;
+#[allow(unused_imports)]
+use sdb_base::prelude::*;

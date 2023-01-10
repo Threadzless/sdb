@@ -1,28 +1,32 @@
 #![allow(unused_imports)]
 
-use std::{env::var, fmt::{Display, Debug}};
-use proc_macro2::Span;
-use proc_macro_error::{emit_warning, emit_error};
-use regex::Regex;
-use syn::LitStr;
 use crate::parts::TransFunc;
+use proc_macro2::Span;
+use proc_macro_error::{emit_error, emit_warning};
+use regex::Regex;
+use std::{
+    env::var,
+    fmt::{Debug, Display},
+};
+use syn::LitStr;
 
 #[cfg(feature = "query-test")]
 use sdb_base::{
     prelude::SurrealClient,
-    reply::{query, TransactionReply}
+    reply::{query, TransactionReply},
 };
 
-
-
-
 #[cfg(feature = "query-test")]
-pub(crate) fn live_query_test( func: &TransFunc ) {
-    use sdb_base::transaction::TransactionBuilder;
+pub(crate) fn live_query_test(func: &TransFunc) {
     use quote::ToTokens;
-    use tokio::{task::{spawn_blocking, block_in_place}, spawn, runtime::Handle};
+    use sdb_base::transaction::TransactionBuilder;
+    use tokio::{
+        runtime::Handle,
+        spawn,
+        task::{block_in_place, spawn_blocking},
+    };
 
-    use crate::parts::{QueryFunc, LetQueryLine, LetQueryInput};
+    use crate::parts::{LetQueryInput, LetQueryLine, QueryFunc};
 
     if let Ok( no_test ) = var("SURREAL_NO_TEST") && no_test.ne("1") {
         return;
@@ -47,8 +51,7 @@ create a this file in your project directory:
             crate::QueryLine::Raw( raw ) => {
                 steps.push( TestStep::Raw { query: raw.sql.value() } )
             },
-            crate::QueryLine::Let( lql ) if 
-            let LetQueryInput::Query( query ) = &lql.input => {
+            crate::QueryLine::Let( lql ) if let LetQueryInput::Query( query ) = &lql.input => {
                 steps.push( TestStep::LetQuery {
                     var: lql.var.to_string(),
                     query: query.complete_sql()
@@ -63,7 +66,6 @@ create a this file in your project directory:
         }
     }
 
-
     let site = Span::mixed_site();
 
     let Ok( run ) = tokio::runtime::Runtime::new() else {
@@ -72,14 +74,14 @@ create a this file in your project directory:
             help = ""
         );
     };
-    let handle = run.spawn( test_run(surreal_url, steps) );
+    let handle = run.spawn(test_run(surreal_url, steps));
 
-    match run.block_on( handle ) {
-        Ok( Ok( _reply ) ) => {
+    match run.block_on(handle) {
+        Ok(Ok(_reply)) => {
             // for line in func.iter_lines() {
             //     reply.
             // }
-        },
+        }
         _ => {
             return emit_warning!(
                 site, "Failed to access SurrealDB to check query";
@@ -95,42 +97,33 @@ Or disable the query-test feature on the sdb crate
 }
 
 #[cfg(feature = "query-test")]
-async fn test_run( url: String, steps: Vec<TestStep> ) -> Result<TransactionReply, sdb_base::error::SdbError> {
-    use sdb_base::{prelude::SurrealClient, reply::{query, TransactionReply}};
+async fn test_run(
+    url: String,
+    steps: Vec<TestStep>,
+) -> Result<TransactionReply, sdb_base::error::SdbError> {
+    use sdb_base::{
+        prelude::SurrealClient,
+        reply::{query, TransactionReply},
+    };
 
-    let client = SurrealClient::new( &url )
-        .build()?;
+    let client = SurrealClient::new(&url).build()?;
 
     let mut trans = client.transaction();
 
     for step in steps {
         trans = match step {
-            TestStep::Raw { query } => {
-                trans.push(true, query)
-            },
-            TestStep::LetQuery { var, query } => {
-                trans.push_var(var.as_str(), query)
-            },
-            TestStep::Select { query } => {
-                trans.push(false, query)
-            },
+            TestStep::Raw { query } => trans.push(true, query),
+            TestStep::LetQuery { var, query } => trans.push_var(var.as_str(), query),
+            TestStep::Select { query } => trans.push(false, query),
         }
     }
 
     trans.run().await
 }
 
-
 #[cfg(feature = "query-test")]
 enum TestStep {
-    Raw { 
-        query: String
-    },
-    LetQuery {
-        var: String,
-        query: String,
-    },
-    Select {
-        query: String
-    }
+    Raw { query: String },
+    LetQuery { var: String, query: String },
+    Select { query: String },
 }

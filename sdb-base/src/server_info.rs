@@ -6,7 +6,7 @@ use crate::{
 
 /// Describes how to connect to a surrealDB instance, including hostname,
 /// namespace, dataspace, credentials, and protocol
-/// 
+///
 /// ### Example
 /// ```rust
 /// # use sdb_base::prelude::*;
@@ -20,8 +20,8 @@ use crate::{
 /// assert_eq!(info.protocol, Protocol::Socket { secure: true } );
 /// assert_eq!(info.auth, None);
 /// ```
-/// 
-/// 
+///
+///
 #[derive(Clone, Debug, PartialEq)]
 pub struct ServerInfo {
     pub hostname: String,
@@ -33,17 +33,17 @@ pub struct ServerInfo {
 
 impl ServerInfo {
     /// Creates a new [`ServerInfo`]
-    /// 
-    /// `host_string`: A URL-like string which describes how to connect to a SurrealDB 
+    ///
+    /// `host_string`: A URL-like string which describes how to connect to a SurrealDB
     /// server. See below for syntax examples
-    /// `protocol`: How to connect to the SurrealDB server. 
-    /// 
+    /// `protocol`: How to connect to the SurrealDB server.
+    ///
     /// ### HostString Syntax
     /// Host strings are formatted just like a URL,
     ///  ```html
     /// [ <protocol>:// ] [ <username> [ : <password> ] @ ] <url_with_port> / <namespace> / <database>
     /// ```
-    /// 
+    ///
     /// ### Examples
     /// - `ws://test_user:test_pass@127.0.0.1:8934/test/demo`
     /// - `http://127.0.0.1:8000/example_ns/demo_db`
@@ -70,11 +70,11 @@ impl ServerInfo {
         match url.split_once("://") {
             Some((proto, rest)) => {
                 main_url = rest;
-                protocol = match Protocol::parse( proto ) {
+                protocol = match Protocol::parse(proto) {
                     Some(s) => s,
-                    None => unimplemented!("Protocol {proto} not supported yet")
-                };    
-            },
+                    None => unimplemented!("Protocol {proto} not supported yet"),
+                };
+            }
             None => {
                 main_url = url;
                 protocol = Default::default();
@@ -84,7 +84,7 @@ impl ServerInfo {
         let parts = main_url.split("/").into_iter().collect::<Vec<&str>>();
         if parts.len() != 3 {
             return Err(SdbError::InvalidHostString {
-                found: main_url.to_string()
+                found: main_url.to_string(),
             });
         }
         let mut auth = None;
@@ -93,15 +93,14 @@ impl ServerInfo {
         let ns = *parts.next().unwrap();
         let db = *parts.next().unwrap();
 
-        if let Some( (left, right) ) = host.split_once("@") {
-            if let Some( (user, pass) ) = left.split_once(":") {
-                auth = Some( Credentials::Basic { 
+        if let Some((left, right)) = host.split_once("@") {
+            if let Some((user, pass)) = left.split_once(":") {
+                auth = Some(Credentials::Basic {
                     user: user.to_string(),
-                    pass: pass.to_string()
+                    pass: pass.to_string(),
                 });
                 host = right;
-            }
-            else {
+            } else {
                 unimplemented!("Non-user + pass authentication method")
             }
         }
@@ -128,8 +127,8 @@ impl ServerInfo {
         }
     }
 
-    /// Gets a list of headers for specifying the namespace, database, 
-    /// and authentication method. 
+    /// Gets a list of headers for specifying the namespace, database,
+    /// and authentication method.
     pub(crate) fn headers(&self) -> Vec<(String, String)> {
         #[cfg(feature = "log")]
         log::trace!("Generating connection headers");

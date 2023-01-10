@@ -52,7 +52,7 @@ impl Parse for QueryResultType {
                     scale: Qrs::Option( value_ty_path( inf ) )
                 })
             }
-        
+
             if let Type::Path( ty_path ) = first_arg {
                 return Ok(Self {
                     // _colon: colon,
@@ -105,11 +105,11 @@ impl Parse for QueryResultType {
                 match out_str.as_str() {
                     "Vec" => Ok( Self { 
                         // _colon: colon,
-                        scale: Qrs::Vec( ty ), 
+                        scale: Qrs::Vec( ty ),
                     }),
                     "Option" => Ok( Self {
                         // _colon: colon,
-                        scale: Qrs::Option( ty ), 
+                        scale: Qrs::Option( ty ),
                     }),
                     _ => panic!("OTUSFDJD")
                 }

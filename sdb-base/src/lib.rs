@@ -19,12 +19,9 @@ mod value;
 pub mod prelude {
 
     pub use crate::{
-        client::{SurrealClient, interface},
-        client::interface::{SurrealRequest, SurrealResponse, SurrealResponseError},
-        reply::TransactionReply,
-        transaction::TransactionBuilder,
-
         any_record::AnyRecord,
+        client::interface::{SurrealRequest, SurrealResponse, SurrealResponseError},
+        client::{interface, SurrealClient},
         credentials::Credentials,
         error::{SdbError, SdbResult},
         parse_target::*,
@@ -32,7 +29,9 @@ pub mod prelude {
         record::SurrealRecord,
         record_id::RecordId,
         record_link::RecordLink,
+        reply::TransactionReply,
         server_info::ServerInfo,
+        transaction::TransactionBuilder,
         value::*,
     };
 }

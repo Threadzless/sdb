@@ -1,10 +1,7 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::{
-    credentials::Credentials,
-    server_info::ServerInfo
-};
+use crate::{credentials::Credentials, server_info::ServerInfo};
 
 #[derive(Serialize)]
 pub struct SurrealRequest {
@@ -13,8 +10,8 @@ pub struct SurrealRequest {
     pub params: Vec<Value>,
 }
 
-unsafe impl Send for SurrealRequest { }
-unsafe impl Sync for SurrealRequest { }
+unsafe impl Send for SurrealRequest {}
+unsafe impl Sync for SurrealRequest {}
 
 impl SurrealRequest {
     pub fn new(id: String, method: impl ToString, params: Vec<impl Into<Value>>) -> Self {
@@ -53,11 +50,11 @@ impl SurrealRequest {
             Some(Credentials::Basic { user, pass }) => {
                 vals.insert("user".to_string(), Value::String(user.clone()));
                 vals.insert("pass".to_string(), Value::String(pass.clone()));
-            },
-            None => { },
+            }
+            None => {}
             _ => unimplemented!(
                 "That auth method is not currently compatible with socket connections"
-            ),            
+            ),
         }
 
         Self::new(id, "signin", vec![Value::Object(vals)])

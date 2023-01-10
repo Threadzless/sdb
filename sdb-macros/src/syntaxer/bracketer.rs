@@ -1,5 +1,3 @@
-
-
 #[derive(Clone, PartialEq)]
 pub enum Bracket {
     Open(char, usize),
@@ -17,16 +15,14 @@ impl Bracket {
 
     pub fn matches(&self, right: char) -> bool {
         match self {
-            Bracket::Open( left, _ ) => {
-                match (left, right) {
-                    ('(', ')') => true,
-                    ('{', '}') => true,
-                    ('[', ']') => true,
-                    _ => false,
-                }
+            Bracket::Open(left, _) => match (left, right) {
+                ('(', ')') => true,
+                ('{', '}') => true,
+                ('[', ']') => true,
+                _ => false,
             },
             // Bracket::Close( right ) => todo!(),
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -70,5 +66,5 @@ pub fn brackets_are_balanced(sql: &str) -> Result<Vec<(usize, usize)>, (usize, u
     //     Ok( () )
     // }
     // regions.push((0, sql.chars().count()));
-    Ok( regions )
+    Ok(regions)
 }

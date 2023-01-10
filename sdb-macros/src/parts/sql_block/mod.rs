@@ -10,8 +10,6 @@ use super::QueryResultType;
 mod sql_method;
 pub(crate) use sql_method::*;
 
-
-
 pub(crate) struct QuerySqlBlock {
     pub methods: Vec<QueryMethod>,
     pub sql: LitStr,
@@ -41,7 +39,6 @@ impl ToTokens for QuerySqlBlock {
     }
 }
 
-
 impl Debug for QuerySqlBlock {
     fn fmt(&self, f: &mut __private::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("QuerySqlBlock")
@@ -50,7 +47,6 @@ impl Debug for QuerySqlBlock {
             .finish()
     }
 }
-
 
 impl QuerySqlBlock {
     /// Emits an error if the SQL string contains any semicolons, and
@@ -84,11 +80,11 @@ impl QuerySqlBlock {
         }
     }
 
-    pub fn complete_sql( &self ) -> String {
+    pub fn complete_sql(&self) -> String {
         let mut sql = self.sql.value();
 
         for method in &self.methods {
-            method.apply_method_sql( &mut sql )
+            method.apply_method_sql(&mut sql)
         }
 
         sql

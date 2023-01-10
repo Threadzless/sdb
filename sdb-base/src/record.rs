@@ -5,14 +5,14 @@ use crate::record_id::RecordId;
 /// Anything which acts as a record in SurrealDB.
 ///
 /// This trait also implements a derive macro
-/// 
+///
 /// ## Examples
 /// ```rust
 /// # use sdb_macros::*;
 /// # use sdb_base::prelude::*;
 /// # use sdb_base as sdb;
 /// # use serde::{Serialize, Deserialize};
-/// # 
+/// #
 /// #[derive(Serialize, Deserialize, SurrealRecord)]
 /// #[table("books")]
 /// struct Book {
@@ -49,7 +49,7 @@ pub trait SurrealRecord: for<'de> Deserialize<'de> {
 // ///
 // /// This is not exactly the same as something implementing [`serde::Serialize`],
 // /// because [`RecordId`]s are not parsed the same way strings are in SurrealQL.
-// /// 
+// ///
 // /// This is already implemented for the following:
 // /// - **Strings** (`String`, `&str`, 'char`)
 // /// - **Primitives** (`bool`, `u8`, `i16`, `u32`, `i32`, `f32`, ect...)

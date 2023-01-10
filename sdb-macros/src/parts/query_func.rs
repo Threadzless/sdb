@@ -29,15 +29,14 @@ impl Parse for QueryFunc {
 }
 
 impl QueryFunc {
-
     pub fn extract_parts(
         &self,
         trans: &Ident,
         on_result: &TokenStream,
     ) -> (TokenStream, Option<TokenStream>) {
         let line = &self.line;
-        let steps = quote!{ #line };
-        let outs = self.line.method_call();//trans, &on_result);
+        let steps = quote! { #line };
+        let outs = self.line.method_call(); //trans, &on_result);
 
         (steps, Some(outs))
     }

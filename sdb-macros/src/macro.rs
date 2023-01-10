@@ -46,7 +46,7 @@ use proc_macro_error::proc_macro_error as proc_macro_error_call;
 /// # tokio_test::block_on(async {
 /// #     test_main().await.unwrap()
 /// # });
-/// 
+///
 /// // A schema definition, used in the macro to guarentee some fields
 /// #[derive(Clone, Serialize, Deserialize, SurrealRecord)]
 /// struct BookSchema {
@@ -62,13 +62,14 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
     let trans_func = parse_macro_input!(input as TransFunc);
 
     let vars = trans_func.arg_vars();
-    let queries = trans_func.full_queries( );
+    let queries = trans_func.full_queries();
     match check_syntax(&vars, &queries) {
-        Ok(_) => {
+        Ok(_) =>
+        {
             #[cfg(feature = "query-test")]
-            query_test::live_query_test( trans_func )
-        },
-        Err(_) => { }
+            query_test::live_query_test(trans_func)
+        }
+        Err(_) => {}
     }
 
     let client = &trans_func.args.client;
@@ -90,9 +91,7 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 
             out_calls.push(quote! { #trans . #call ? });
             out_types.push(quote! { #var_type });
-            unpack.extend(
-                quote! { let #mut_token #var_name = #trans . #call  #result_act; },
-            );
+            unpack.extend(quote! { let #mut_token #var_name = #trans . #call  #result_act; });
         };
 
         push_steps.extend(quote! { #line });
@@ -107,7 +106,6 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 
         #unpack
     );
-
 
     #[cfg(feature = "macro-print")]
     println!("\n\n{out}\n\n");
@@ -147,7 +145,7 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 /// # tokio_test::block_on(async {
 /// #     test_main().await.unwrap()
 /// # });
-/// 
+///
 /// // A schema definition, used in the macro to guarentee some fields
 /// #[derive(Clone, Serialize, Deserialize, SurrealRecord)]
 /// struct BookSchema {
@@ -177,8 +175,8 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     let call = quote!( next::< #var_type >() );
 
     out_calls.push(quote! { #trans . #call ? });
-    out_types.extend_list(quote! { #var_type }, quote!{ , });
-    unpack.extend_list(quote! { #trans . #call ? }, quote!{ , });
+    out_types.extend_list(quote! { #var_type }, quote! { , });
+    unpack.extend_list(quote! { #trans . #call ? }, quote! { , });
 
     push_steps.extend(quote! { #select });
 
@@ -188,12 +186,12 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     };
 
     let parse_type = match &select.cast.scale {
-        QueryResultScale::Single( ty ) => quote!{ #ty },
-        QueryResultScale::Option( ty ) => quote!{ Option< #ty > },
-        QueryResultScale::Vec( ty ) => quote!{ Vec< #ty > },
+        QueryResultScale::Single(ty) => quote! { #ty },
+        QueryResultScale::Option(ty) => quote! { Option< #ty > },
+        QueryResultScale::Vec(ty) => quote! { Vec< #ty > },
     };
 
-    let out = quote!{
+    let out = quote! {
         #client . transaction( )
         #push_steps
         .run_parse::< #parse_type >( )
@@ -215,7 +213,7 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
     let obj = parse_macro_input!(input as DeriveInput);
 
-    let Data::Struct( st ) = obj.data else { 
+    let Data::Struct( st ) = obj.data else {
         panic!("Derive only works on Structs (so far)")
     };
 

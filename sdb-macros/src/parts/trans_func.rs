@@ -36,17 +36,15 @@ impl TransFunc {
         }
     }
 
-    pub fn arg_vars( &self) -> Vec<String> {
+    pub fn arg_vars(&self) -> Vec<String> {
         let mut vars = Vec::new();
         for (idx, _field) in self.args.fields.iter().enumerate() {
             vars.push(format!("{idx}"))
         }
         for line in &self.lines.lines {
             match line {
-                QueryLine::Let( l ) => {
-                    vars.push( l.var.to_string() )
-                },
-                _ => continue
+                QueryLine::Let(l) => vars.push(l.var.to_string()),
+                _ => continue,
             }
         }
         vars
@@ -56,23 +54,18 @@ impl TransFunc {
         let mut queries = Vec::new();
         for line in &self.lines.lines {
             match line {
-                QueryLine::Raw( r ) => {
-                    queries.push( (r.sql.value(), &r.sql) )
-                },
-                QueryLine::Let( l ) => {
-                    match &l.input {
-                        LetQueryInput::Query(q) => {
-                            let full_sql = format!("LET ${} = ({})", l.var.to_string(), q.complete_sql());
-                            queries.push( (full_sql, &q.sql) )        
-                        },
-                        _ => todo!()
+                QueryLine::Raw(r) => queries.push((r.sql.value(), &r.sql)),
+                QueryLine::Let(l) => match &l.input {
+                    LetQueryInput::Query(q) => {
+                        let full_sql =
+                            format!("LET ${} = ({})", l.var.to_string(), q.complete_sql());
+                        queries.push((full_sql, &q.sql))
                     }
+                    _ => todo!(),
                 },
                 // QueryLine::Let( LetQueryLine { input: LetQueryInput::} )
-                QueryLine::Select( sel ) => {
-                    queries.push( (sel.sql.complete_sql(), &sel.sql.sql) )
-                },
-                _ => continue
+                QueryLine::Select(sel) => queries.push((sel.sql.complete_sql(), &sel.sql.sql)),
+                _ => continue,
             }
         }
         queries

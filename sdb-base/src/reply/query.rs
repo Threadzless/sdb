@@ -1,11 +1,9 @@
 use serde::{
     de::{MapAccess, Visitor},
-    Deserialize,
-    Serialize
+    Deserialize, Serialize,
 };
 use serde_json::Value;
 use std::time::Duration;
-
 
 #[derive(Debug, Serialize)]
 pub struct QueryReply {
@@ -15,21 +13,18 @@ pub struct QueryReply {
     pub result: Value,
 }
 
-
 impl QueryReply {
-    pub fn parse<T: for<'de> Deserialize<'de>>( &mut self ) -> Vec<T> {
+    pub fn parse<T: for<'de> Deserialize<'de>>(&mut self) -> Vec<T> {
         serde_json::from_value(self.result.take()).unwrap()
     }
 
-    pub fn parse_one<T: for<'de> Deserialize<'de>>( &mut self ) -> Option<T> {
+    pub fn parse_one<T: for<'de> Deserialize<'de>>(&mut self) -> Option<T> {
         let Value::Array( mut arr ) = self.result.take() else {
             panic!( "Invalid response: Expected array, found \n\n{:?}\n\n", self.result )
         };
         match arr.first_mut() {
             None => None,
-            Some( one ) => Some(
-                serde_json::from_value::<T>(one.take()).unwrap()
-            ),
+            Some(one) => Some(serde_json::from_value::<T>(one.take()).unwrap()),
         }
     }
 

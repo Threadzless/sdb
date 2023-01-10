@@ -1,11 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-
 use crate::{
-    client::SurrealClient,
-    error::*,
-    reply::TransactionReply,
-    parse_target::SurrealParseTarget,
+    client::SurrealClient, error::*, parse_target::SurrealParseTarget, reply::TransactionReply,
 };
 
 pub struct TransQuery {
@@ -28,12 +24,12 @@ impl TransactionBuilder {
 
     /// Insert a new query into the transaction, which will produce a result
     /// when the transaction is run
-    /// 
+    ///
     /// ## Example
     /// ```
     /// # use sdb_base::prelude::*;
     /// # use serde::{Serialize, Deserialize};
-    /// # 
+    /// #
     /// # tokio_test::block_on( async {
     /// # let client = SurrealClient::demo().unwrap();
     /// #
@@ -62,15 +58,15 @@ impl TransactionBuilder {
 
     /// Inserts a value into the transaction. Queries pushed in after this can use
     /// the variable. Inserting will sanitise the value as needed for its type.
-    /// 
-    /// Accepts anything which implements [`serde::Serialize`], which is all 
+    ///
+    /// Accepts anything which implements [`serde::Serialize`], which is all
     /// primitives, everything in [`std::collections`], and a lot more.
-    /// 
+    ///
     /// ## Example
     /// ```
     /// # use sdb_base::prelude::*;
     /// # use serde::{Serialize, Deserialize};
-    /// # 
+    /// #
     /// # tokio_test::block_on( async {
     /// # let client = SurrealClient::demo().unwrap();
     /// #
@@ -91,31 +87,30 @@ impl TransactionBuilder {
     /// # }
     /// ```
     pub fn push_var<T: Serialize>(mut self, var_name: &str, value: T) -> Self {
-        
-        match serde_json::to_string( &value ) {
-            Err( _e ) => panic!("Cannot serialize value into variable `{var_name}`"),
-            Ok( val_string ) => {
+        match serde_json::to_string(&value) {
+            Err(_e) => panic!("Cannot serialize value into variable `{var_name}`"),
+            Ok(val_string) => {
                 self.queries.push(TransQuery {
-                    sql: format!("LET ${var_name} = {val_string}" ),
+                    sql: format!("LET ${var_name} = {val_string}"),
                     skip: true,
                 });
                 self
-            },
+            }
         }
     }
 
     /// Insert a new query into the transaction, which will *NOT* produce a result
-    /// when the transaction is run. 
-    /// 
-    /// Adding skipped queries into transaction will not alter the contents 
-    /// of the transaction results, so adding them doesn't require you to 
+    /// when the transaction is run.
+    ///
+    /// Adding skipped queries into transaction will not alter the contents
+    /// of the transaction results, so adding them doesn't require you to
     /// reassess the ordering of you `.next_*` calls.
-    /// 
+    ///
     /// ## Example
     /// ```
     /// # use sdb_base::prelude::*;
     /// # use serde::{Serialize, Deserialize};
-    /// # 
+    /// #
     /// # tokio_test::block_on( async {
     /// # let client = SurrealClient::demo().unwrap();
     /// #
@@ -144,13 +139,13 @@ impl TransactionBuilder {
     }
 
     /// Executes a query and stores its results in a transaction variable.
-    /// 
+    ///
     /// ```rust
     /// # use sdb_base::prelude::*;
     /// # use sdb_macros::*;
     /// # use sdb_base as sdb;
     /// # use serde::{Serialize, Deserialize};
-    /// # 
+    /// #
     /// # async fn main_test() {
     /// # let client = SurrealClient::demo().unwrap();
     /// #
@@ -162,7 +157,7 @@ impl TransactionBuilder {
     ///      
     /// let good_books: i32 = reply.next().unwrap();
     /// # }
-    /// # 
+    /// #
     /// # tokio_test::block_on( async {
     /// #     main_test().await
     /// # });
@@ -198,7 +193,7 @@ impl TransactionBuilder {
         client.query(self).await
     }
 
-    /// Executes the Query, then attempts to parse the first non-skipped response 
+    /// Executes the Query, then attempts to parse the first non-skipped response
     /// into a given type. Parse target must implement [`SurrealParseTarget`], which
     /// already includes:
     ///  - [`AnyRecord`](crate::any_record::AnyRecord)
@@ -207,47 +202,47 @@ impl TransactionBuilder {
     /// as well as [`Option<T>`] and [`Vec<T>`] where `T` implements [`SurrealParseTarget`]
     #[inline(always)]
     pub async fn run_parse<Trg: SurrealParseTarget>(self) -> SdbResult<Trg> {
-        let mut reply = self.run() . await ?;
+        let mut reply = self.run().await?;
         let res = reply.next_result();
         match Trg::parse(res.result.take()) {
-            Ok( val ) => Ok( val ),
-            Err( err ) => Err( SdbError::parse_failure::<Trg>(&res, err) )
+            Ok(val) => Ok(val),
+            Err(err) => Err(SdbError::parse_failure::<Trg>(&res, err)),
         }
-
     }
 
-    /// Executes the transaction and then parses and returns a list of results from 
+    /// Executes the transaction and then parses and returns a list of results from
     /// the first non-skipped query
     #[deprecated]
     #[allow(deprecated)]
     pub async fn run_parse_list<T>(self) -> SdbResult<Vec<T>>
-    where T: for<'de> Deserialize<'de>
+    where
+        T: for<'de> Deserialize<'de>,
     {
-        let mut reply = self.run() . await ?;
+        let mut reply = self.run().await?;
         reply.next_list::<T>()
     }
 
-    
-    /// Executes the transaction and then parses and returns a single result from 
+    /// Executes the transaction and then parses and returns a single result from
     /// the first non-skipped query
     #[deprecated]
     #[allow(deprecated)]
     pub async fn run_parse_one<T>(self) -> SdbResult<Option<T>>
-    where T: for<'de> Deserialize<'de>
+    where
+        T: for<'de> Deserialize<'de>,
     {
-        let mut reply = self.run() . await ?;
+        let mut reply = self.run().await?;
         reply.next_one::<T>()
     }
 
-    
     /// Executes the transaction and then parses and returns a non-optional single
     /// result from the first non-skipped query
     #[deprecated]
     #[allow(deprecated)]
     pub async fn run_parse_one_exact<T>(self) -> SdbResult<T>
-    where T: for<'de> Deserialize<'de>
+    where
+        T: for<'de> Deserialize<'de>,
     {
-        let mut reply = self.run() . await ?;
+        let mut reply = self.run().await?;
         reply.next_one_exact::<T>()
     }
 }

@@ -63,18 +63,18 @@ impl ClientBuilder {
             #[cfg(feature = "ws")]
             Protocol::Socket { .. } => {
                 SurrealClient::build::<interfaces::WSSurrealInterface>(server)
-            },
+            }
 
             #[cfg(feature = "http")]
             Protocol::Http { .. } => {
                 SurrealClient::build::<interfaces::HttpSurrealInterface>(server)
-            },
+            }
 
             #[cfg(feature = "tikv")]
             Protocol::Tikv { .. } => {
                 unimplemented!()
-            },
-            
+            }
+
             #[allow(unreachable_patterns)]
             _ => panic!("Protocol not recognised: {proto:?}\n Did you enable the feature?"),
         }

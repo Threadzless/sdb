@@ -1,4 +1,7 @@
-use std::{fmt::Debug, ops::{Deref, DerefMut}};
+use std::{
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 
 #[allow(unused_imports)]
 use proc_macro_error::{emit_error, emit_warning};
@@ -6,10 +9,7 @@ use proc_macro_error::{emit_error, emit_warning};
 use quote::ToTokens;
 
 #[allow(unused_imports)]
-use syn::{parse::*, *, punctuated::Punctuated};
-
-
-
+use syn::{parse::*, punctuated::Punctuated, *};
 
 const UNKNOWN_METHOD_HELP: &str = r#"Expected one of the following methods, or no method:
  - pluck
@@ -20,7 +20,6 @@ const UNKNOWN_METHOD_HELP: &str = r#"Expected one of the following methods, or n
  - page
 "#;
 
-
 #[derive(Debug)]
 pub(crate) struct QueryMethod {
     call: ExprCall,
@@ -28,11 +27,15 @@ pub(crate) struct QueryMethod {
 
 impl Deref for QueryMethod {
     type Target = ExprCall;
-    fn deref(&self) -> &Self::Target { &self.call }
+    fn deref(&self) -> &Self::Target {
+        &self.call
+    }
 }
 
 impl DerefMut for QueryMethod {
-    fn deref_mut(&mut self) -> &mut Self::Target { &mut self.call }
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.call
+    }
 }
 
 impl Parse for QueryMethod {
@@ -42,7 +45,6 @@ impl Parse for QueryMethod {
         })
     }
 }
-
 
 impl QueryMethod {
     pub fn name(&self) -> String {
@@ -69,7 +71,7 @@ impl QueryMethod {
         Some(s.value())
     }
 
-    pub fn apply_method_sql( &self, sql: &mut String) {
+    pub fn apply_method_sql(&self, sql: &mut String) {
         let method_name = self.name();
         match method_name.as_str() {
             "shuffle" => quote_shuffle(self, sql),
@@ -88,18 +90,6 @@ impl QueryMethod {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 fn quote_shuffle(method: &QueryMethod, sql: &mut String) {
     *sql = match method.arg_count() {
@@ -125,7 +115,7 @@ fn quote_pluck(method: &QueryMethod, sql: &mut String) {
             format!("SELECT * FROM (SELECT {field_name} FROM ({sql}))")
         },
 
-        2 if let Some( field_name ) = method.arg_str(0) 
+        2 if let Some( field_name ) = method.arg_str(0)
         && let Some( limit ) = method.arg_usize(1) => {
             format!("SELECT * FROM (SELECT {field_name} FROM ({sql}) LIMIT {limit})")
         },
@@ -147,7 +137,7 @@ fn quote_limit(method: &QueryMethod, sql: &mut String) {
             format!("SELECT * FROM ({sql}) LIMIT {limit}")
         },
 
-        2 if let Some( limit ) = method.arg_usize(0) && limit > 0 
+        2 if let Some( limit ) = method.arg_usize(0) && limit > 0
         && let Some( start ) = method.arg_usize(1) => {
             format!("SELECT * FROM ({sql}) LIMIT {limit} START {start}")
         },
@@ -167,7 +157,7 @@ fn quote_count(method: &QueryMethod, sql: &mut String) {
     *sql = match method.arg_count() {
         0 => {
             format!("SELECT * FROM count(({sql}))")
-        },
+        }
 
         _ => {
             return emit_error!(

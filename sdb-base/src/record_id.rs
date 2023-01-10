@@ -1,13 +1,10 @@
 use serde::{de::*, *};
 use std::fmt::{Formatter, Result as FmtResult};
 
-use crate::{
-    error::{SdbError, SdbResult},
-    // record::ToSurrealQL,
-};
+use crate::error::{SdbError, SdbResult};
 
 /// The `id` field of all SurrealDB records, and a
-/// 
+///
 #[derive(Clone, Debug, PartialEq)]
 pub struct RecordId {
     table: String,
@@ -20,8 +17,8 @@ impl RecordId {
         let text = text.to_string();
         match text.split_once(":") {
             Some((table, key)) => Ok(Self::new(table, key)),
-            None => Err( SdbError::UnableToParseAsRecordId { 
-                input: text.clone() 
+            None => Err(SdbError::UnableToParseAsRecordId {
+                input: text.clone(),
             }),
         }
     }

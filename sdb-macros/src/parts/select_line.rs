@@ -59,7 +59,6 @@ impl ToTokens for SelectQueryLine {
 
 //
 
-
 #[derive(Debug)]
 pub(crate) struct SelectQueryLineAnon {
     pub cast: QueryResultType,
@@ -87,7 +86,7 @@ impl Parse for SelectQueryLineAnon {
             sql: input.parse()?,
         };
 
-        me.sql.check(None);//Some((&me.into, &me.cast, me.mut_token())));
+        me.sql.check(None); //Some((&me.into, &me.cast, me.mut_token())));
 
         Ok(me)
     }

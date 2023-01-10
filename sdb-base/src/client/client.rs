@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    client::{ClientBuilder, SurrealInterface, interface::*},
+    client::{interface::*, ClientBuilder, SurrealInterface},
     error::SdbResult,
     reply::TransactionReply,
     server_info::ServerInfo,
@@ -9,7 +9,7 @@ use crate::{
 };
 
 /// The URL to access the demo database, which is launched by running `./launch-demo-db.sh`
-/// 
+///
 /// See [`SurrealClient`]`::demo()` for more info
 pub const DEMO_URL: &str = "ws://test_user:test_pass@127.0.0.1:8000/example/demo";
 
@@ -25,19 +25,19 @@ impl SurrealClient {
 
     /// Create a client for accessin the demo database. It's only useful for code
     /// examples, and probably shouldn't be used outside of that
-    /// 
+    ///
     /// The demo database is launched by running `./launch-demo-db.sh`
-    /// 
+    ///
     /// This:
     /// ```rust
     /// # use sdb_base::prelude::*;
-    /// # 
+    /// #
     /// let client = SurrealClient::demo().unwrap();
     /// ```
     /// Is equivilent to this:
     /// ```rust
     /// # use sdb_base::prelude::*;
-    /// # 
+    /// #
     /// let client = SurrealClient::new("127.0.0.1:8000/example/demo")
     ///     .auth_basic("test_user", "test_pass")
     ///     .protocol( Protocol::Socket { secure: false } )
@@ -57,10 +57,7 @@ impl SurrealClient {
     ) -> SdbResult<Self> {
         let socket = Box::new(Mutex::new(I::new(&server)?));
 
-        let inner = Arc::new(ClientInner {
-            socket,
-            server,
-        });
+        let inner = Arc::new(ClientInner { socket, server });
 
         Ok(Self { inner })
     }
@@ -105,11 +102,9 @@ impl SurrealClient {
 
                 // Ok(TransactionReply::new(queries, results))
                 match result {
-                    Some( res ) => {
-                        Ok(TransactionReply::new(queries, res))
-                    },
+                    Some(res) => Ok(TransactionReply::new(queries, res)),
                     None => {
-                        panic!( "\n{result:?}\n" )
+                        panic!("\n{result:?}\n")
                     }
                 }
             }
@@ -121,8 +116,8 @@ impl SurrealClient {
 //
 //
 
-unsafe impl Sync for ClientInner { }
-unsafe impl Send for ClientInner { }
+unsafe impl Sync for ClientInner {}
+unsafe impl Send for ClientInner {}
 pub struct ClientInner {
     socket: Box<Mutex<dyn SurrealInterface>>,
     server: ServerInfo,
