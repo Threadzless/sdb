@@ -1,25 +1,27 @@
-#![feature(let_chains, if_let_guard)]
-#![allow(unused)]
+#![feature(let_chains, if_let_guard, future_join)]
 
-pub mod client;
-pub mod interfaces;
-// pub mod protocols;
-pub mod reply;
-pub mod transaction;
+mod client;
+mod interfaces;
+mod reply;
+mod transaction;
 
-pub mod any_record;
-pub mod credentials;
-pub mod error;
-pub mod record;
-pub mod record_id;
-pub mod record_link;
-pub mod server_info;
+mod any_record;
+mod credentials;
+mod error;
+mod record;
+mod record_id;
+mod record_link;
+mod server_info;
 
 pub mod prelude {
 
     pub use crate::{
-        any_record::AnyRecord,
         client::SurrealClient,
+        client::interface::{SurrealRequest, SurrealResponse, SurrealResponseError},
+        reply::TransactionReply,
+        transaction::TransactionBuilder,
+
+        any_record::AnyRecord,
         credentials::Credentials,
         error::{SdbError, SdbResult},
         protocols::Protocol,
@@ -41,6 +43,8 @@ pub mod protocols {
         Socket,
 
         /// TiKV - scalable distributed storage layer that's surrealDb compatible
+        /// 
+        /// Not implemented 
         Tikv,
     }
 }

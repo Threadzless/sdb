@@ -10,7 +10,7 @@ pub(crate) struct SelectQueryLine {
     pub into: Ident,
     pub _colon: Colon,
     pub cast: QueryResultType,
-    pub _eq: Option<Eq>,
+    pub _eq: Eq,
     pub sql: QuerySqlBlock,
 }
 
@@ -55,7 +55,7 @@ impl ToTokens for SelectQueryLine {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let full_sql = &self.sql;
         tokens.extend(quote! {
-            .push( false, #full_sql )
+            .push( #full_sql )
         })
     }
 }
@@ -74,7 +74,7 @@ impl ToTokens for SelectQueryLine {
 #[derive(Debug)]
 pub(crate) struct SelectQueryLineAnon {
     pub cast: QueryResultType,
-    pub _eq: Option<Eq>,
+    pub _eq: Eq,
     pub sql: QuerySqlBlock,
 }
 
@@ -108,7 +108,7 @@ impl ToTokens for SelectQueryLineAnon {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let full_sql = &self.sql;
         tokens.extend(quote! {
-            .push( false, #full_sql )
+            .push( #full_sql )
         })
     }
 }

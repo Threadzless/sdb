@@ -1,8 +1,5 @@
-use async_trait::async_trait;
-
 use reqwest::{Client, ClientBuilder, RequestBuilder, Url};
 use serde_json::Value;
-// use serde_json::Value;
 
 use crate::{
     server_info::ServerInfo,
@@ -46,20 +43,16 @@ impl HttpSurrealInterface {
     }
 }
 
-// #[cfg(not( target_family = "wasm"))]
-#[async_trait]
+#[async_trait::async_trait(?Send)]
 impl SurrealInterface for HttpSurrealInterface {
     // fn send(&mut self, info: &ServerInfo, sql: String) -> Result<Vec<QueryReply>, SdbError> {
     async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
-        let Some( Value::String( sql ) ) = request.params.get(0) else { panic!() };
-        let req = self.request(info, sql).unwrap();
-        let res = req.send().await.unwrap();
-        let text = res.text().await.unwrap();
-        match serde_json::from_str::<Vec<QueryReply>>( &text ) {
-            Err( _err ) => {
-                println!("\n\n{sql}\n\n{text}\n\n");
-                panic!("Failed to parse")  
-            },
+        let Some( Value::String( sql ) ) = request.params.get(0) else { unreachable!() };
+        let req = self.request(info, sql)?;
+        let res = convert_err( req.send().await, info )?;
+        let txt = convert_err( res.text().await, info )?;
+        match serde_json::from_str::<Vec<QueryReply>>( &txt ) {
+            Err( _err ) => unreachable!("Response Parse Failure"),
             Ok( replies ) => Ok(
                 SurrealResponse::Result {
                     id: request.id, 
@@ -67,5 +60,27 @@ impl SurrealInterface for HttpSurrealInterface {
                 }
             )
         }
+    }
+}
+
+fn convert_err<T>(
+    base: Result<T, reqwest::Error>, 
+    info: &ServerInfo
+) -> Result<T, SdbError> {
+    let base = match base {
+        Err( e ) => e,
+        Ok( val ) => return Ok( val )
+    };
+
+    let url = info.full_url();
+
+    if base.is_timeout() {
+        Err( SdbError::NetworkTimeout )
+    }
+    else if base.is_connect() {
+        Err( SdbError::ConnectionRefused { url } )
+    }
+    else {
+        Err( SdbError::HttpNetowrkError( base ) )
     }
 }

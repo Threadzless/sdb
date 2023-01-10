@@ -1,7 +1,10 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::{credentials::Credentials, error::*, server_info::ServerInfo};
+use crate::{
+    credentials::Credentials,
+    server_info::ServerInfo
+};
 
 #[derive(Serialize)]
 pub struct SurrealRequest {
@@ -9,6 +12,9 @@ pub struct SurrealRequest {
     pub method: String,
     pub params: Vec<Value>,
 }
+
+unsafe impl Send for SurrealRequest { }
+unsafe impl Sync for SurrealRequest { }
 
 impl SurrealRequest {
     pub fn new(id: String, method: impl ToString, params: Vec<impl Into<Value>>) -> Self {

@@ -19,6 +19,10 @@ serde = "1.0"
 sdb-base = { path = "../sdb-base", optional = true }
 tokio = { version = "1.24", optional = true }
 
+[dev-dependencies]
+# sdb = { path = "../sdb" }
+tokio-test = "0.4"
+
 
 [features]
 default = [

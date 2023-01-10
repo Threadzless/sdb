@@ -40,7 +40,7 @@ impl WSSurrealInterface {
         match &mut self.builder {
             Some(builder) => {
                 let url = server.full_url();
-                let socket = builder.connect(&url).await?;
+                let socket = convert_err( builder.connect(&url).await, server )?;
                 self.builder = None;
                 self.socket = Some(socket);
             }
@@ -67,17 +67,14 @@ impl WSSurrealInterface {
 unsafe impl Send for WSSurrealInterface { } 
 unsafe impl Sync for WSSurrealInterface { }
 
-#[async_trait::async_trait]
+#[async_trait::async_trait(?Send)]
 impl SurrealInterface for WSSurrealInterface {
     async fn send(&mut self, server: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
         self.ensure_connected(server).await?;
         
         let socket = self.socket.as_mut().unwrap();
 
-        socket
-            .send_text(serde_json::to_string(&request).unwrap())
-            .await
-            .unwrap();
+        socket.send_text(request.stringify()).await.unwrap();
 
         let frame = recieve_next(socket).await;
         
@@ -113,4 +110,48 @@ async fn recieve_next(sock: &mut WebSocket) -> Frame {
             return reply;
         }
     }
+}
+
+
+/// Convert [`WebSocketError`] to [`SdbError`], 
+pub fn convert_err<T>(
+    base: Result<T, WebSocketError>,
+    info: &ServerInfo
+) -> Result<T, SdbError> {
+    use WebSocketError as WsErr;
+    use std::io::ErrorKind as IoErr;
+
+    let base_err = match base {
+        Ok(val) => return Ok(val),
+        Err(e) => e,
+    };
+
+    let url = info.full_url();
+
+    Err(match &base_err {
+        WsErr::TcpConnectionError( err ) => {
+            match err.kind() {
+                IoErr::ConnectionRefused => {
+                    SdbError::ConnectionRefused { url }
+                },
+                IoErr::ConnectionAborted |
+                IoErr::ConnectionReset |
+                IoErr::BrokenPipe => {
+                    SdbError::ConnectionClosed {
+                        url,
+                        info: err.kind().to_string()
+                    }
+                },
+                _ => SdbError::WebsocketNetworkError( base_err ),
+            }
+        },
+        WsErr::WebSocketClosedError => {
+            SdbError::ConnectionClosed {
+                url,
+                info: "Socket closed".to_string()
+            }
+        },
+        WsErr::PayloadTooLargeError => SdbError::OversizedPayload,
+        _ => SdbError::WebsocketNetworkError( base_err ),
+    })
 }

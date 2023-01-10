@@ -12,7 +12,6 @@ mod query_test;
 use query_test::*;
 
 mod inc_stream;
-#[allow(unused)]
 use inc_stream::*;
 
 use proc_macro_error::proc_macro_error as proc_macro_error_call;
@@ -25,39 +24,34 @@ use proc_macro_error::proc_macro_error as proc_macro_error_call;
 /// See the `sdb` crate's documentation for a full breakdown of the macro
 ///
 /// ```rust
-/// # use sdb::{ SdbClient,  }
-/// // Connect to a SurrealDb on the local machine, default port (8000)
-/// // and use the database "test" inside the namespace "demo"
-/// let client = SdbClient::connect( "127.0.0.1/demo/test" )
-///     .await.unwrap();
+/// # use sdb::prelude::*;
+/// # use serde::{Serialize, Deserialize};
+/// # async fn test_main() -> SdbResult<()> {
+/// // Connect to a the demo SurrealDb (launched using `./launch-demo-db.sh`)
+/// let client = SurrealClient::demo().unwrap();
 ///
-/// // Run a query on the db
-/// //                         |--- value stored as `$0` to be used in queries
-/// //          Required ---|  |        |--- Unwrap errors, instead of bubbling
-/// //                 vvvvvv  vvvvvv   v
-/// sdb::trans_act!( ( client, 50_000 ) ! => {
-/// //  |--- results of query will be parsed as `Vec<StorySchema>`
-/// //  |    and stored in `longest_books`.
-/// //  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-///     longest_books: Vec<StorySchema> =
+/// sdb::trans_act!( ( client, 50_000 ) => {
+///     longest_books: Vec<BookSchema> =
 ///         "SELECT * FROM books WHERE word_count > $0 LIMIT 5";
-/// //       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/// //       |--------------- SQL to execute. ---------------|
 /// });
 ///
-/// // Write titles of books to stdout
-/// println!("The longest books are:")
+/// println!("The longest books are:");
 /// for book in longest_books {
-///     println!("  {} - {} words", book.title, book.word_count)
+///     println!("  {}", book.title)
 /// }
-///
+/// # Ok( () )
+/// # }
+/// # tokio_test::block_on(async {
+/// #     test_main().await.unwrap()
+/// # });
+/// 
 /// // A schema definition, used in the macro to guarentee some fields
 /// #[derive(Clone, Serialize, Deserialize, SurrealRecord)]
 /// struct BookSchema {
 ///     pub id: RecordId,
 ///     pub title: String,
+///     pub word_count: usize,
 ///     pub summary: Option<String>, // <- Still parses correctly if field not in query results
-///     pub tags: Vec<String>,
 /// }
 /// ```
 #[proc_macro_error_call]
@@ -117,8 +111,44 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
 // --
 
 //
-
-#[proc_macro_error_call]
+/// A macro for running SurrealDb queries and transactions without a bunch of boilerplate.
+///
+/// Example
+/// ===============
+/// This should explain the basics, but there's way more to this macro than shown here.
+/// See the `sdb` crate's documentation for a full breakdown of the macro
+///
+/// ```rust
+/// # use sdb::prelude::*;
+/// # use serde::{Serialize, Deserialize};
+/// # async fn test_main() -> SdbResult<()> {
+/// // Connect to a the demo SurrealDb (launched using `./launch-demo-db.sh`)
+/// let client = SurrealClient::demo().unwrap();
+///
+/// let long_books = sdb::query!( ( client, 50_000 ) =>
+///         Vec<BookSchema> = "SELECT * FROM books WHERE word_count > $0 LIMIT 5"
+///     );
+///
+/// println!("The longest books are:");
+/// for book in long_books {
+///     println!("  {}", book.title)
+/// }
+/// # Ok( () )
+/// # }
+/// # tokio_test::block_on(async {
+/// #     test_main().await.unwrap()
+/// # });
+/// 
+/// // A schema definition, used in the macro to guarentee some fields
+/// #[derive(Clone, Serialize, Deserialize, SurrealRecord)]
+/// struct BookSchema {
+///     pub id: RecordId,
+///     pub title: String,
+///     pub word_count: usize,
+///     pub summary: Option<String>, // <- Still parses correctly if field not in query results
+/// }
+/// ```
+// #[proc_macro_error_call]
 #[proc_macro]
 pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     let query_func = parse_macro_input!(input as QueryFunc);
@@ -128,7 +158,6 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     let client = &query_func.args.client;
     let trans = Ident::new("db_trans", Span::call_site());
 
-    // let mut out_vars = TokenStream::new();
     let mut out_types = TokenStream::new();
     let mut out_calls = Vec::new();
     let mut unpack = TokenStream::new();
@@ -145,7 +174,7 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     push_steps.extend(quote! { #select });
 
     let last = match query_func.async_tok {
-        None => quote!( . await ),
+        None => quote!( . await ? ),
         Some(_) => quote!(),
     };
 

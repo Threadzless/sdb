@@ -32,18 +32,6 @@ impl TransactionReply {
         }
     }
 
-    fn next(&mut self) -> Result<(Value, &TransQuery), SdbError> {
-        let reply = self.next_result().result.take();
-        let idx = self.index - 1;
-        let query = self.queries.get( self.index - 1 )
-            .expect("Too many calls to TransactionReply::next_*.");
-
-            println!("\t{}\t=> {}", query.skip, query.sql);
-
-            Ok((reply, query))
-    }
-
-
     pub fn next_result(&mut self) -> &mut QueryReply {
         while let Some( line ) = self.queries.get( self.index ) && line.skip {
             self.index += 1;

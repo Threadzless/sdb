@@ -42,13 +42,13 @@ impl ClientBuilder {
         self
     }
 
-    /// Not implemented
-    pub fn auth_token(mut self, token: impl ToString) -> Self {
-        self.auth = Some(Credentials::Token {
-            token: token.to_string(),
-        });
-        self
-    }
+    // /// Not implemented
+    // pub fn auth_token(mut self, token: impl ToString) -> Self {
+    //     self.auth = Some(Credentials::Token {
+    //         token: token.to_string(),
+    //     });
+    //     self
+    // }
 
     pub fn build(self) -> SdbResult<SurrealClient> {
         let server = ServerInfo::new(self.connect_str, self.protocol, self.auth)?;
@@ -72,7 +72,7 @@ impl ClientBuilder {
             },
             
             #[allow(unreachable_patterns)]
-            _ => panic!("Protocol not recognised. did you enable the feature?"),
+            _ => panic!("Protocol not recognised: {proto:?}\n Did you enable the feature?"),
         }
     }
 }

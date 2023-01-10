@@ -5,8 +5,7 @@ use simplelog::*;
 
 async fn run() -> Result<(), SdbError> {
     // Create client
-    let client = SurrealClient::new("ws://test_user:test_pass@127.0.0.1:8000/example/demo")
-        .build()?;
+    let client = SurrealClient::demo().unwrap();
 
     // Run a query on `client`
     let books_by_george = sdb::query!( (client, "George") => 
@@ -15,12 +14,9 @@ async fn run() -> Result<(), SdbError> {
         Vec<BookSchema> = "SELECT * FROM books WHERE <-wrote<-authors.name ?~ $0" 
     );
 
-    // handle errors
-    let good_books = books_by_george.expect("Query to succeed. Is the example db running?");
-
-    // List results, or bubble the error
+    // List results
     println!("Books by people named 'George':");
-    for s in good_books {
+    for s in books_by_george {
         println!("  {}\t{}", s.title, s.word_count.unwrap_or_default())
     }
 

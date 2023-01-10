@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
-use tokio::sync::RwLock;
+// use tokio::sync::RwLock;
 use crate::{
-    // protocols::SdbProtocol,
     client::{ClientBuilder, SurrealInterface},
     error::SdbResult,
     reply::TransactionReply,
@@ -10,6 +9,11 @@ use crate::{
 };
 
 use super::{SurrealInterfaceBuilder, SurrealRequest, SurrealResponse};
+
+/// The URL to access the demo database, which is launched by running `./launch-demo-db.sh`
+/// 
+/// See [`SurrealClient`]`::demo()` for more info
+pub const DEMO_URL: &str = "ws://test_user:test_pass@127.0.0.1:8000/example/demo";
 
 #[derive(Clone)]
 pub struct SurrealClient {
@@ -21,6 +25,31 @@ impl SurrealClient {
         ClientBuilder::new(url)
     }
 
+    /// Create a client for accessin the demo database. It's only useful for code
+    /// examples, and probably shouldn't be used outside of that
+    /// 
+    /// The demo database is launched by running `./launch-demo-db.sh`
+    /// 
+    /// This:
+    /// ```rust
+    /// # use sdb_base::prelude::*;
+    /// # 
+    /// let client = SurrealClient::demo().unwrap();
+    /// ```
+    /// Is equivilent to this:
+    /// ```rust
+    /// # use sdb_base::prelude::*;
+    /// # 
+    /// let client = SurrealClient::new("127.0.0.1:8000/example/demo")
+    ///     .auth_basic("test_user", "test_pass")
+    ///     .protocol( Protocol::Socket )
+    ///     .build()
+    ///     .unwrap();
+    /// ```
+    pub fn demo() -> SdbResult<Self> {
+        Self::new(DEMO_URL).build()
+    }
+
     pub fn server(&self) -> &ServerInfo {
         &self.inner.server
     }
@@ -28,7 +57,7 @@ impl SurrealClient {
     pub(crate) fn build<I: SurrealInterfaceBuilder + 'static>(
         server: ServerInfo,
     ) -> SdbResult<Self> {
-        let socket = Box::new(RwLock::new(I::new(&server)?));
+        let socket = Box::new(Mutex::new(I::new(&server)?));
 
         let inner = Arc::new(ClientInner {
             socket,
@@ -49,7 +78,7 @@ impl SurrealClient {
         let request = SurrealRequest::query(full_sql);
         let req_id = request.id.clone();
 
-        let mut socket = self.inner.socket.write().await;
+        let mut socket = self.inner.socket.lock().unwrap();
 
         let response = socket.send(&self.inner.server, request).await?;
         match response {
@@ -74,9 +103,17 @@ impl SurrealClient {
                     )
                 }
 
-                let results = result.expect("A non-null transaction response");
+                // let results = result.expect("A non-null transaction response");
 
-                Ok(TransactionReply::new(queries, results))
+                // Ok(TransactionReply::new(queries, results))
+                match result {
+                    Some( res ) => {
+                        Ok(TransactionReply::new(queries, res))
+                    },
+                    None => {
+                        panic!( "\n{result:?}\n" )
+                    }
+                }
             }
         }
     }
@@ -89,6 +126,24 @@ impl SurrealClient {
 unsafe impl Sync for ClientInner { }
 unsafe impl Send for ClientInner { }
 pub struct ClientInner {
-    socket: Box<RwLock<dyn SurrealInterface>>,
+    socket: Box<Mutex<dyn SurrealInterface>>,
     server: ServerInfo,
 }
+
+// enum SdbInterface {
+//     Socket( Box<WSSurrealInterface> ),
+//     Http( Box<HttpSurrealInterface> )
+// }
+
+// impl SdbInterface {
+//     pub async fn send( &mut self, server: &ServerInfo, request: SurrealRequest ) -> SdbResult<SurrealResponse> {
+//         match self {
+//             SdbInterface::Socket( i ) => {
+//                 i.as_mut().send(server, request).await
+//             },
+//             SdbInterface::Http( i ) => {
+//                 i.as_mut().send(server, request).await
+//             },
+//         }
+//     }
+// }

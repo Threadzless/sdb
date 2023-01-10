@@ -1,13 +1,13 @@
 use serde::{
     de::{MapAccess, Visitor},
     Deserialize,
+    Serialize
 };
 use serde_json::Value;
 use std::time::Duration;
 
-use crate::error::{SdbError, SdbResult};
 
-#[derive(serde::Serialize)]
+#[derive(Debug, Serialize)]
 pub struct QueryReply {
     pub query: Option<String>,
     pub time: Duration,

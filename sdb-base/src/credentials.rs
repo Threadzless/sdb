@@ -1,12 +1,15 @@
 use base64::encode;
 use std::fmt::Debug;
 
+/// The information required to log into the SurrealDB instance.
+/// 
+/// TODO: implement Token and Digest methods
 #[derive(Clone, Debug, PartialEq)]
 pub enum Credentials {
     User { user: String },
     Basic { user: String, pass: String },
-    Token { token: String },
-    Digest {},
+    // Token { token: String },
+    // Digest {},
 }
 
 impl Credentials {
@@ -21,7 +24,6 @@ impl Credentials {
                 let base = encode(format!("{user}:{pass}"));
                 format!("Basic {base}")
             }
-            _ => unimplemented!(),
         };
 
         headers.push(("authorization".to_string(), auth_str));

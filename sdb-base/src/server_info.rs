@@ -10,16 +10,15 @@ use crate::{
 /// ```rust
 /// # use sdb_base::prelude::*;
 ///
-/// let info = ServerInfo::new( "ws://192.168.8.6:12345/test/demo", None, None );
+/// let connect_url = "ws://192.168.8.6:12345/test/demo";
+/// let info = ServerInfo::new( connect_url, None, None ).unwrap();
 ///
-/// assert_eq!(info.hostname, "192.168.8.6");
-/// assert_eq!(info.port, Some(12345));
+/// assert_eq!(info.hostname, "192.168.8.6:12345");
 /// assert_eq!(info.namespace, "test");
 /// assert_eq!(info.database, "demo");
-/// assert_eq!(info.protocol, Some(Protocol::Socket));
+/// assert_eq!(info.protocol, Protocol::Socket);
 /// assert_eq!(info.auth, None);
 /// ```
-///
 #[derive(Clone, Debug, PartialEq)]
 pub struct ServerInfo {
     pub hostname: String,
@@ -47,30 +46,15 @@ impl ServerInfo {
         Ok(me)
     }
 
-    pub fn full_url(&self) -> String {
-        let host = &self.hostname;
-        match &self.protocol {
-            Protocol::Socket => format!("ws://{host}/rpc"),
-            Protocol::Http => format!("http://{host}/sql"),
-            _ => unimplemented!(),
-        }
-    }
-
     pub(crate) fn inner_parse(url: &str) -> Result<Self, SdbError> {
         let protocol;
         let main_url;
         if let Some((proto, rest)) = url.split_once("://") {
             main_url = rest;
             protocol = match proto {
-                #[cfg(feature = "ws")]
                 "ws" | "wss" => Protocol::Socket,
-
-                #[cfg(feature = "http")]
                 "http" | "https" => Protocol::Http,
-
-                #[cfg(feature = "tikv")]
                 "tikv" => Protocol::Tikv,
-
                 _ => panic!(
                     "Unrecognised network protocol: {:?}. Maybe you forgot to enable the feature?",
                     proto
@@ -117,7 +101,19 @@ impl ServerInfo {
         Ok(con)
     }
 
-    pub fn headers(&self) -> Vec<(String, String)> {
+    /// Gets the URL of the surrealDb this [`ServerInfo`] points towards
+    pub(crate) fn full_url(&self) -> String {
+        let host = &self.hostname;
+        match &self.protocol {
+            Protocol::Socket => format!("ws://{host}/rpc"),
+            Protocol::Http => format!("http://{host}/sql"),
+            _ => unimplemented!(),
+        }
+    }
+
+    /// Gets a list of headers for specifying the namespace, database, 
+    /// and authentication method. 
+    pub(crate) fn headers(&self) -> Vec<(String, String)> {
         #[cfg(feature = "log")]
         log::trace!("Generating connection headers");
 

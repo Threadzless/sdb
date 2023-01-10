@@ -24,15 +24,18 @@ pub enum SurrealResponse {
     },
 }
 
+unsafe impl Send for SurrealResponse { }
+unsafe impl Sync for SurrealResponse { }
+
 type SurrealResponseResult = Result< Option<Vec<QueryReply>>, SurrealResponseError >;
 
 impl Into<SurrealResponseResult> for SurrealResponse {
     fn into(self) -> SurrealResponseResult {
         match self {
-            SurrealResponse::Result { id, result } => {
+            SurrealResponse::Result {result, .. } => {
                 Ok( result )
             },
-            SurrealResponse::Error { id, error } => {
+            SurrealResponse::Error { error, .. } => {
                 Err( error )
             },
         }

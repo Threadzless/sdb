@@ -6,17 +6,18 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sdb-base = { path = "../sdb-base"}
-sdb-macros = { path = "../sdb-macros" }
+sdb-base = { path = "../sdb-base", default-features = false }
+sdb-macros = { path = "../sdb-macros", default-features = false }
 
 log = { version = "0.4", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
 serde = "1.0"
+serde_json = "1.0"
 log = { version ="0.4" }
 simplelog = { version = "0.12" }
-
+tokio-test = "0.4.2"
 
 [features]
 default = [
@@ -33,9 +34,11 @@ http = [
     "sdb-base/http",
 ]
 ws = [
-    "sdb-base/http",
+    "sdb-base/ws",
 ]
-tikv = [ ]
+tikv = [
+    "sdb-base/tikv",
+]
 macro-print = [
     "sdb-macros/macro-print",
 ]

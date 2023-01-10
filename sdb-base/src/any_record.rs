@@ -4,6 +4,9 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{record::SurrealRecord, record_id::RecordId};
 
+/// A Generic record which can hold any value. It's basically
+/// just [`Value`](serde_json::Value) but it implements 
+/// [`SurrealRecord`]
 #[derive(Clone, Debug, PartialEq)]
 pub struct AnyRecord {
     val: Value,

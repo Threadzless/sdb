@@ -17,6 +17,6 @@ impl Parse for RawQueryLine {
 impl ToTokens for RawQueryLine {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let sql = &self.sql;
-        tokens.to_tokens(&mut quote!( .push( true, #sql ) ))
+        tokens.to_tokens(&mut quote!( .push_skipped( #sql ) ))
     }
 }

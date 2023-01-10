@@ -3,7 +3,7 @@ use std::fmt::{Formatter, Result as FmtResult};
 
 use crate::{
     error::{SdbError, SdbResult},
-    record::ToSurrealQL,
+    // record::ToSurrealQL,
 };
 
 /// The `id` field of all SurrealDB records, and a
@@ -46,11 +46,11 @@ impl RecordId {
     }
 }
 
-impl ToSurrealQL for RecordId {
-    fn to_sql(&self) -> String {
-        format!("type::thing( {}:`{}` )", self.table, self.key)
-    }
-}
+// impl ToSurrealQL for RecordId {
+//     fn to_sql(&self) -> String {
+//         format!("type::thing( {:?}, {:?} )", self.table, self.key)
+//     }
+// }
 
 impl ToString for RecordId {
     fn to_string(&self) -> String {
