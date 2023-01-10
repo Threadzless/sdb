@@ -3,8 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     client::SurrealClient,
-    error::SdbResult,
+    error::*,
     reply::TransactionReply,
+    parse_target::SurrealParseTarget,
 };
 
 pub struct TransQuery {
@@ -146,6 +147,8 @@ impl TransactionBuilder {
     /// 
     /// ```rust
     /// # use sdb_base::prelude::*;
+    /// # use sdb_macros::*;
+    /// # use sdb_base as sdb;
     /// # use serde::{Serialize, Deserialize};
     /// # 
     /// # async fn main_test() {
@@ -157,14 +160,14 @@ impl TransactionBuilder {
     ///     .run()
     ///     .await.unwrap();
     ///      
-    /// let good_books: i32 = reply.next_one_exact().unwrap();
+    /// let good_books: i32 = reply.next().unwrap();
     /// # }
     /// # 
     /// # tokio_test::block_on( async {
     /// #     main_test().await
     /// # });
     /// #
-    /// # #[derive(Clone, Deserialize)]
+    /// # #[derive(Clone, Deserialize, SurrealRecord)]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,
     /// #     pub title: String,
@@ -195,8 +198,28 @@ impl TransactionBuilder {
         client.query(self).await
     }
 
+    /// Executes the Query, then attempts to parse the first non-skipped response 
+    /// into a given type. Parse target must implement [`SurrealParseTarget`], which
+    /// already includes:
+    ///  - [`AnyRecord`](crate::any_record::AnyRecord)
+    ///  - [`Value`](serde_json::Value)
+    ///  - Anything which implements [`SurrealRecord`](crate::record::SurrealRecord)
+    /// as well as [`Option<T>`] and [`Vec<T>`] where `T` implements [`SurrealParseTarget`]
+    #[inline(always)]
+    pub async fn run_parse<Trg: SurrealParseTarget>(self) -> SdbResult<Trg> {
+        let mut reply = self.run() . await ?;
+        let res = reply.next_result();
+        match Trg::parse(res.result.take()) {
+            Ok( val ) => Ok( val ),
+            Err( err ) => Err( SdbError::parse_failure::<Trg>(&res, err) )
+        }
+
+    }
+
     /// Executes the transaction and then parses and returns a list of results from 
     /// the first non-skipped query
+    #[deprecated]
+    #[allow(deprecated)]
     pub async fn run_parse_list<T>(self) -> SdbResult<Vec<T>>
     where T: for<'de> Deserialize<'de>
     {
@@ -207,6 +230,8 @@ impl TransactionBuilder {
     
     /// Executes the transaction and then parses and returns a single result from 
     /// the first non-skipped query
+    #[deprecated]
+    #[allow(deprecated)]
     pub async fn run_parse_one<T>(self) -> SdbResult<Option<T>>
     where T: for<'de> Deserialize<'de>
     {
@@ -217,6 +242,8 @@ impl TransactionBuilder {
     
     /// Executes the transaction and then parses and returns a non-optional single
     /// result from the first non-skipped query
+    #[deprecated]
+    #[allow(deprecated)]
     pub async fn run_parse_one_exact<T>(self) -> SdbResult<T>
     where T: for<'de> Deserialize<'de>
     {

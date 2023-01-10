@@ -15,18 +15,7 @@ pub(crate) struct SelectQueryLine {
 }
 
 impl SelectQueryLine {
-    pub fn method_call(&self) -> TokenStream {
-        use QueryResultScale::*;
-
-        match &self.cast.scale {
-            Option(_to) => quote!(next_one()),
-            Single(_to) => quote!(next_one_exact()),
-            Vec(_to) => quote!(next_list()),
-        }
-    }
-
     pub fn mut_token(&self) -> TokenStream {
-        // todo!()
         match &self.r#mut {
             Some(m) => quote! { #m },
             None => quote! {},

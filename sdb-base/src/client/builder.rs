@@ -1,5 +1,5 @@
 use crate::{
-    client::SurrealClient, credentials::Credentials, error::SdbResult, interfaces, protocols::*,
+    client::SurrealClient, credentials::Credentials, error::SdbResult, interfaces, protocol::*,
     server_info::ServerInfo,
 };
 
@@ -57,17 +57,17 @@ impl ClientBuilder {
 
         match proto {
             #[cfg(feature = "ws")]
-            Protocol::Socket => {
+            Protocol::Socket { .. } => {
                 SurrealClient::build::<interfaces::WSSurrealInterface>(server)
             },
 
             #[cfg(feature = "http")]
-            Protocol::Http => {
+            Protocol::Http { .. } => {
                 SurrealClient::build::<interfaces::HttpSurrealInterface>(server)
             },
 
             #[cfg(feature = "tikv")]
-            Protocol::Tikv => {
+            Protocol::Tikv { .. } => {
                 unimplemented!()
             },
             

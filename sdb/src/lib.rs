@@ -27,6 +27,7 @@ The [`sdb`] crate comes with two macros for processing queries:
 ### [`query!`] Example
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -46,7 +47,7 @@ println!("There are {} books about StarTrek", trek_books.len());
 #     test_main().await.unwrap()
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
@@ -71,6 +72,7 @@ compile.
 
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -92,7 +94,7 @@ println!("There are {good_book_count} long books by {author}");
 #     test_main().await.unwrap()
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
@@ -114,6 +116,7 @@ be seperated by semicolon (`;`) to compile.
 
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -131,14 +134,14 @@ sdb::trans_act!( ( client, 50_000 ) => {
 #     test_main().await.unwrap()
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
 #     pub word_count: Option<usize>,
 # }
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct AuthorSchema {
 #     pub id: RecordId,
 #     pub name: String,
@@ -160,6 +163,7 @@ Each query in a transaction must do one of the following to its results:
 
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -182,7 +186,7 @@ Each query in a transaction must do one of the following to its results:
 #     test_main().await.unwrap()
 # });
 # 
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
@@ -196,6 +200,7 @@ variable name, like so:
 
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -211,7 +216,7 @@ variable name, like so:
 #     test_main().await.unwrap()
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
@@ -231,6 +236,7 @@ For [`query!`], you can insert an exclimation mark to disable bubbling
 the errors by default
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # tokio_test::block_on( async {
@@ -247,7 +253,7 @@ the errors by default
     }
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
@@ -310,6 +316,7 @@ For example, by combining the `pluck("name")` and `limit(3)` methods, you can
 extract the `name` field from the first 3 records, and store them as a [`Vec<String>`]
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -325,7 +332,7 @@ sdb::trans_act!( (client) => {
 #     test_main().await.unwrap();
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,
@@ -384,6 +391,7 @@ SELECT * FROM count(( <Q> ))
 Common usage:
 ```rust
 # use sdb_base::prelude::*;
+# use sdb_macros::*;
 # use serde::{Serialize, Deserialize};
 # 
 # async fn test_main() -> SdbResult<()> {
@@ -403,7 +411,7 @@ Common usage:
 #     test_main().await.unwrap();
 # });
 #
-# #[derive(Clone, Deserialize)]
+# #[derive(Clone, Deserialize, SurrealRecord)]
 # pub struct BookSchema {
 #     pub id: RecordId,
 #     pub title: String,

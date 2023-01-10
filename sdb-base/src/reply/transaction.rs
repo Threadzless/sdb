@@ -1,8 +1,11 @@
-// use anyhow:;
 use serde::Deserialize;
 use serde_json::{from_value, Value};
 
-use crate::{error::SdbError, transaction::TransQuery};
+use crate::{
+    error::*,
+    transaction::TransQuery,
+    parse_target::SurrealParseTarget
+};
 
 use super::QueryReply;
 
@@ -44,7 +47,42 @@ impl TransactionReply {
         reply
     }
 
+    /// Parses the Query's results as a given type. This is the most convienient way to get 
+    /// data out of a transaction without using the macros
+    ///
+    /// ### Example 
+    /// ```rust
+    /// # use sdb_base::prelude::*;
+    /// # use serde::{Serialize, Deserialize};
+    /// # 
+    /// # async fn main_test() {
+    /// # let client = SurrealClient::demo().unwrap();
+    /// #
+    /// let mut reply = client.transaction()
+    ///     .push("SELECT * FROM count( (SELECT * FROM books) )")
+    ///     .push("SELECT * FROM (SELECT title FROM books LIMIT 20)")
+    ///     .run()
+    ///     .await.unwrap();
+    ///      
+    /// let book_count: i32 = reply.next().unwrap();
+    /// let some_titles: Vec<String> = reply.next().unwrap();
+    /// # }
+    /// # 
+    /// # tokio_test::block_on( async {
+    /// #     main_test().await
+    /// # });
+    /// ```
+    pub fn next<Trg: SurrealParseTarget>(&mut self) -> SdbResult<Trg> {
+        let result = self.next_result();
+        match Trg::parse( result.result.take() ) {
+            Ok( val ) => Ok( val ),
+            Err( err ) => Err( SdbError::parse_failure::<Trg>( &result, err) )
+        }
+    }
+
+
     /// Get zero or more results
+    #[deprecated]
     pub fn next_list<T>(&mut self) -> Result<Vec<T>, SdbError>
     where
         T: for<'de> Deserialize<'de>,
@@ -64,6 +102,7 @@ impl TransactionReply {
     }
 
     /// Get zero or one results 
+    #[deprecated]
     pub fn next_one<T>(&mut self) -> Result<Option<T>, SdbError>
     where
         T: for<'de> Deserialize<'de>,
@@ -90,6 +129,7 @@ impl TransactionReply {
     }
 
     /// Get exactly one result, or an error
+    #[deprecated]
     pub fn next_one_exact<T>(&mut self) -> Result<T, SdbError>
     where
         T: for<'de> Deserialize<'de>,

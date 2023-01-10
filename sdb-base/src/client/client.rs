@@ -1,14 +1,12 @@
 use std::sync::{Arc, Mutex};
-// use tokio::sync::RwLock;
+
 use crate::{
-    client::{ClientBuilder, SurrealInterface},
+    client::{ClientBuilder, SurrealInterface, interface::*},
     error::SdbResult,
     reply::TransactionReply,
     server_info::ServerInfo,
     transaction::TransactionBuilder,
 };
-
-use super::{SurrealInterfaceBuilder, SurrealRequest, SurrealResponse};
 
 /// The URL to access the demo database, which is launched by running `./launch-demo-db.sh`
 /// 
@@ -42,7 +40,7 @@ impl SurrealClient {
     /// # 
     /// let client = SurrealClient::new("127.0.0.1:8000/example/demo")
     ///     .auth_basic("test_user", "test_pass")
-    ///     .protocol( Protocol::Socket )
+    ///     .protocol( Protocol::Socket { secure: true } )
     ///     .build()
     ///     .unwrap();
     /// ```

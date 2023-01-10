@@ -76,13 +76,13 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
         if let QueryLine::Select(select) = &line {
             let var_name = &select.into;
             let var_type = &select.cast;
-            let call = select.method_call();
+            let call = quote!( next::< #var_type >() );
             let mut_token = select.mut_token();
 
             out_calls.push(quote! { #trans . #call ? });
             out_types.push(quote! { #var_type });
             unpack.extend(
-                quote! { let #mut_token #var_name: #var_type = #trans . #call #result_act; },
+                quote! { let #mut_token #var_name = #trans . #call  #result_act; },
             );
         };
 
@@ -165,7 +165,7 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 
     let select = &query_func.line;
     let var_type = &select.cast;
-    let call = select.method_call();
+    let call = quote!( next::< #var_type >() );
 
     out_calls.push(quote! { #trans . #call ? });
     out_types.extend_list(quote! { #var_type }, quote!{ , });
@@ -178,15 +178,17 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
         Some(_) => quote!(),
     };
 
-    let out = match &select.cast.scale {
-        QueryResultScale::Single( _ty ) => todo!(),
-        QueryResultScale::Option( _ty ) => todo!(),
-        QueryResultScale::Vec( ty ) => quote!{
-            #client . transaction( )
-            #push_steps
-            .run_parse_list::< #ty >( )
-            #last
-        },
+    let parse_type = match &select.cast.scale {
+        QueryResultScale::Single( ty ) => quote!{ #ty },
+        QueryResultScale::Option( ty ) => quote!{ Option< #ty > },
+        QueryResultScale::Vec( ty ) => quote!{ Vec< #ty > },
+    };
+
+    let out = quote!{
+        #client . transaction( )
+        #push_steps
+        .run_parse::< #parse_type >( )
+        #last
     };
 
     #[cfg(feature = "macro-print")]
@@ -286,24 +288,16 @@ impl ToTokens for QueryLine {
 }
 
 impl QueryLine {
-    #[allow(unused)]
-    pub fn method_call(&self) -> Option<TokenStream> {
-        match self {
-            QueryLine::Select(sel) => Some(sel.method_call()),
-            _ => None,
-        }
-    }
-
     pub fn out_call(&self, transact: &Ident, err: &TokenStream) -> Option<TokenStream> {
         let Self::Select( select ) = self else { return None };
 
         let into = &select.into;
         let cast = &select.cast;
         let cast_type = cast.cast_type();
-        let method_call = select.method_call();
+        // let method_call = select.method_call();
 
         Some(quote! {
-            let #into: #cast_type = #transact . #method_call #err ;
+            let #into = #transact . next::< #cast_type >() #err ;
         })
         // Some(quote! {
         //     #transact . #method_call #err ;

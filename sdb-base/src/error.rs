@@ -1,5 +1,5 @@
 use std::fmt::{Formatter, Debug, Result as FmtResult, Display};
-use crate::client::SurrealResponseError;
+use crate::{client::SurrealResponseError, reply::QueryReply};
 
 
 
@@ -24,6 +24,16 @@ pub enum SdbError {
         message: SurrealResponseError
     },
 
+    /// Hoststring match this format (without spaces):
+    /// ```html
+    /// [ <protocol>:// ] [ <username> [ : <password> ] @ ] <url_with_port> / <namespace> / <database>
+    /// ```
+    /// 
+    /// ### Examples
+    /// ```ini
+    ///   ws://test_user:test_pass@127.0.0.1:8934/test/demo
+    /// http://                    127.0.0.1:8000/example_ns/demo_db
+    /// ```
     InvalidHostString {
         found: String,
     },
@@ -91,3 +101,14 @@ impl Display for SdbError {
     }
 }
 
+
+impl SdbError {
+    #[inline]
+    pub(crate) fn parse_failure<T>( reply: &QueryReply, err: serde_json::Error ) -> Self {
+        SdbError::QueryResultParseFailure {
+            query: reply.query(),
+            target_type: core::any::type_name::<T>().to_string(),
+            serde_err: err 
+        }
+    }
+}
