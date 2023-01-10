@@ -55,6 +55,10 @@ impl ClientBuilder {
 
         let proto = server.protocol.clone();
 
+        if proto.is_secure() {
+            unimplemented!("Secure connections")
+        }
+
         match proto {
             #[cfg(feature = "ws")]
             Protocol::Socket { .. } => {

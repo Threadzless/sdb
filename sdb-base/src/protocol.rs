@@ -40,6 +40,14 @@
                 _ => None,
             }
         }
+
+        pub fn is_secure( &self ) -> bool {
+            match self {
+                Protocol::Http { secure } => *secure,
+                Protocol::Socket { secure } => *secure,
+                Protocol::Tikv { secure } => *secure,
+            }
+        }
     }
 
     impl Default for Protocol {

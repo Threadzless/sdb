@@ -49,7 +49,7 @@ impl SurrealInterface for HttpSurrealInterface {
     async fn send(&mut self, info: &ServerInfo, request: SurrealRequest) -> SdbResult<SurrealResponse> {
         let Some( Value::String( sql ) ) = request.params.get(0) else { unreachable!() };
         let req = self.request(info, sql)?;
-        let res = req.send().await.map_err( |e| convert_err(e, info) )?;
+        let res = req.send().await.unwrap();//.map_err( |e| convert_err(e, info) )?;
         let txt = res.text().await;
         let txt = txt.map_err( |e| convert_err(e, info) )?;
         match serde_json::from_str::<Vec<QueryReply>>( &txt ) {
