@@ -1,15 +1,17 @@
 [package]
 name = "sdb"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
-description = "An unofficial SurrealDB client, intended for working with Yew"
+description = "An unofficial SurrealDB client that works in wasm"
 readme = "README.md"
 repository = "https://github.com/Threadzless/sdb/"
-keywords = ["surreal", "surrealdb", "yew", "webapp", "html5" ]
-cateories = ["database", "wasm", "web-programming"]
+keywords = ["surreal", "surrealdb", "yew", "webapp", "html5"]
+categories = ["database", "wasm", "web-programming"]
 license = "MIT"
-exclude = ["sdb/example.db", "launch-demo-dh.sh"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+exclude = ["/example.db", "example-db-content.sql"]
+
+[lib]
+path = "src/lib.rs"
 
 [dependencies]
 sdb-base = { path = "../sdb-base", default-features = false }

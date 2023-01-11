@@ -1,2 +1,4 @@
 [env]
-SURREAL_URL = "ws://test_user:test_pass@127.0.0.1:8000/example/demo"
+SURREAL_HOST = "127.0.0.1:8000"
+SURREAL_NS = "example"
+SURREAL_DB = "demo"

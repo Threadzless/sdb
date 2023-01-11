@@ -76,14 +76,15 @@ impl SurrealClient {
         let mut socket = self.inner.socket.lock().unwrap();
 
         let response = socket.send(&self.inner.server, request).await?;
-        match response {
-            SurrealResponse::Error { id, error } => {
-                if id.ne(&req_id) {
-                    unreachable!(
-                        "Packets recieved out of order. {id:?} {req_id:?}. Plz report to github"
-                    )
-                }
+        if ! response.check_id(&req_id) {
+            unreachable!(
+                "Packets recieved out of order. {:?} {req_id:?}. Plz report to github", 
+                response.id()
+            )
+        }
 
+        match response {
+            SurrealResponse::Error { error, .. } => {
                 #[cfg(feature = "log")]
                 log::error!("SurrealDB response: {:?}", error);
 
@@ -91,20 +92,11 @@ impl SurrealClient {
 
                 panic!("Surreal Responded with an error");
             }
-            SurrealResponse::Result { id, result } => {
-                if id.ne(&req_id) {
-                    unreachable!(
-                        "Packets recieved out of order. {id:?} {req_id:?}. Plz report to github"
-                    )
-                }
-
-                // let results = result.expect("A non-null transaction response");
-
-                // Ok(TransactionReply::new(queries, results))
+            SurrealResponse::Result { result, .. } => {
                 match result {
                     Some(res) => Ok(TransactionReply::new(queries, res)),
                     None => {
-                        panic!("\n{result:?}\n")
+                        panic!("~ ~\n{result:?}\n")
                     }
                 }
             }

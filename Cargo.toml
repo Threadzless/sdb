@@ -1,6 +1,8 @@
 [workspace]
 members = [
-    "sdb-macros",
-    "sdb-base",
     "sdb",
+    "sdb-base",
+    "sdb-macros",
 ]
+
+exclude = ["/sdb/example.db", "launch-demo-db.sh"]

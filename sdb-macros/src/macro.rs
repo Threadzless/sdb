@@ -5,10 +5,13 @@ use proc_macro2::{Span, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{parse::*, punctuated::Punctuated, *};
 
+
+
 mod parts;
 use parts::*;
 
-mod query_test;
+#[cfg(feature = "query-test")]
+mod query_tester;
 
 mod inc_stream;
 use inc_stream::*;
@@ -66,8 +69,14 @@ pub fn trans_act(input: TokenStreamOld) -> TokenStreamOld {
     match check_syntax(&vars, &queries) {
         Ok(_) =>
         {
-            #[cfg(feature = "query-test")]
-            query_test::live_query_test(trans_func)
+            #[cfg(feature = "query-test")] {
+                let full_sql = trans_func.full_queries()
+                    .iter()
+                    .map(|(sql, _)| sql.to_string())
+                    .collect::<Vec<String>>()
+                    .join(";\n");
+                query_tester::live_query_test(full_sql)
+            }
         }
         Err(_) => {}
     }
