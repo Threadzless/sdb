@@ -1,6 +1,6 @@
 [package]
 name = "sdb-base"
-version = "0.2.0"
+version = "0.5.0"
 edition = "2021"
 description = "An unofficial SurrealDB client, intended for working with Yew"
 readme = "README.md"
@@ -12,7 +12,7 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-path = "src/lib.rs"
+path = "src/base.rs"
 
 [dependencies]
 async-trait = "0.1"
@@ -50,4 +50,7 @@ ws = [
     "websockets",
 ]
 tikv = [
+]
+# include some helpers for doctests. this are not useful outside of this librarie's self-testing
+extras = [
 ]

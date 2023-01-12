@@ -1,6 +1,6 @@
 [package]
 name = "sdb-macros"
-version = "0.2.0"
+version = "0.5.0"
 edition = "2021"
 description = "An unofficial SurrealDB client, intended for working with Yew"
 readme = "README.md"
@@ -35,13 +35,12 @@ tokio-test = "0.4"
 
 [features]
 default = [
-    "query-test",
-    "macro-print",
+    # "query-test",
+    # "macro-print",
 ]
 ## Prints the output of the macro at compile time. helpful for debugging 
 macro-print = [ ]
-
+# Runs compile time tests against a live surrealdb server. (using transactions. Everything is rolled back for safety)
 query-test = [
-    # "sdb-base",
     "reqwest",
 ]

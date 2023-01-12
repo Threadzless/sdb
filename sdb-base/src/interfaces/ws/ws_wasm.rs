@@ -62,9 +62,6 @@ impl SurrealInterface for WSSurrealInterface {
         self.ensure_connected(info).await?;
         let msg = request.stringify();
 
-        #[cfg(feature = "log")]
-        log::trace!("Sending => {}", msg);
-
         let msg = Message::Text(msg);
         let socket = self.socket.as_mut().unwrap(); // else { panic!("Socket to be initialized") };
 

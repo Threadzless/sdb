@@ -81,7 +81,7 @@ impl ServerInfo {
             }
         }
 
-        let parts = main_url.split("/").into_iter().collect::<Vec<&str>>();
+        let parts = main_url.split('/').collect::<Vec<&str>>();
         if parts.len() != 3 {
             return Err(SdbError::InvalidHostString {
                 found: main_url.to_string(),
@@ -93,8 +93,8 @@ impl ServerInfo {
         let ns = *parts.next().unwrap();
         let db = *parts.next().unwrap();
 
-        if let Some((left, right)) = host.split_once("@") {
-            if let Some((user, pass)) = left.split_once(":") {
+        if let Some((left, right)) = host.split_once('@') {
+            if let Some((user, pass)) = left.split_once(':') {
                 auth = Some(Credentials::Basic {
                     user: user.to_string(),
                     pass: pass.to_string(),

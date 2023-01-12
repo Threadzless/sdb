@@ -5,4 +5,8 @@ members = [
     "sdb-macros",
 ]
 
-exclude = ["/sdb/example.db", "launch-demo-db.sh"]
+exclude = [
+    "/sdb/example.db",
+    "launch-demo-db.sh",
+    "/sdb/example-db-content.sql",
+]

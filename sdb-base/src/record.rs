@@ -1,6 +1,12 @@
 use serde::Deserialize;
 
-use crate::record_id::RecordId;
+mod any;
+mod id;
+mod link;
+
+pub use any::*;
+pub use id::*;
+pub use link::*;
 
 /// Anything which acts as a record in SurrealDB.
 ///

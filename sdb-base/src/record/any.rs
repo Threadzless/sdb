@@ -2,7 +2,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::{from_value, Value};
 use std::ops::{Deref, DerefMut};
 
-use crate::{record::SurrealRecord, record_id::RecordId};
+use crate::record::{RecordId, SurrealRecord};
 
 /// A Generic record which can hold any value. It's basically
 /// just [`Value`](serde_json::Value) but it implements

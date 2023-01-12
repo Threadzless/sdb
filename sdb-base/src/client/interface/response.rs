@@ -8,7 +8,7 @@ pub struct SurrealResponseError {
     pub message: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum SurrealResponse {
     Error {
@@ -26,9 +26,9 @@ unsafe impl Sync for SurrealResponse {}
 
 type SurrealResponseResult = Result<Option<Vec<QueryReply>>, SurrealResponseError>;
 
-impl Into<SurrealResponseResult> for SurrealResponse {
-    fn into(self) -> SurrealResponseResult {
-        match self {
+impl From<SurrealResponse> for SurrealResponseResult {
+    fn from(val: SurrealResponse) -> SurrealResponseResult {
+        match val {
             SurrealResponse::Result { result, .. } => Ok(result),
             SurrealResponse::Error { error, .. } => Err(error),
         }

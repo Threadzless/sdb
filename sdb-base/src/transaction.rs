@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    client::SurrealClient, error::*, parse_target::SurrealParseTarget, reply::TransactionReply,
-};
+use crate::{client::SurrealClient, error::*, reply::TransactionReply};
 
 pub struct TransQuery {
     pub(crate) sql: String,
@@ -31,14 +29,14 @@ impl TransactionBuilder {
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # tokio_test::block_on( async {
-    /// # let client = SurrealClient::demo().unwrap();
+    /// # let client = SurrealClient::demo();
     /// #
     /// let mut reply = client.transaction()
     ///     .push("SELECT * FROM books LIMIT 5")
     ///     .run()
     ///     .await.unwrap();
     ///     
-    /// let five_books: Vec<BookSchema> = reply.next_list().unwrap();
+    /// let five_books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
     /// #
     /// # #[derive(Clone, Deserialize)]
@@ -68,7 +66,7 @@ impl TransactionBuilder {
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # tokio_test::block_on( async {
-    /// # let client = SurrealClient::demo().unwrap();
+    /// # let client = SurrealClient::demo();
     /// #
     /// let mut reply = client.transaction()
     ///     .push_var("search_term", "Spacetime")
@@ -76,7 +74,7 @@ impl TransactionBuilder {
     ///     .run()
     ///     .await.unwrap();
     ///     
-    /// let books_about_spacetime: Vec<BookSchema> = reply.next_list().unwrap();
+    /// let books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
     /// #
     /// # #[derive(Clone, Deserialize)]
@@ -112,7 +110,7 @@ impl TransactionBuilder {
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # tokio_test::block_on( async {
-    /// # let client = SurrealClient::demo().unwrap();
+    /// # let client = SurrealClient::demo();
     /// #
     /// let mut reply = client.transaction()
     ///     .push_skipped("USE DB demo")
@@ -120,7 +118,7 @@ impl TransactionBuilder {
     ///     .run()
     ///     .await.unwrap();
     ///     
-    /// let five_books: Vec<BookSchema> = reply.next_list().unwrap();
+    /// let five_books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
     /// #
     /// # #[derive(Clone, Deserialize)]
@@ -147,15 +145,17 @@ impl TransactionBuilder {
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # async fn main_test() {
-    /// # let client = SurrealClient::demo().unwrap();
+    /// # let client = SurrealClient::demo();
     /// #
     /// let mut reply = client.transaction()
-    ///     .query_to_var("good_books", r#"SELECT * FROM books WHERE <-wrote<-authors.name ?~ "George R. R. Martin""#)
+    ///     .push_var("name_search", "George R. R. Martin")
+    ///     .query_to_var("good_books", "SELECT * FROM books WHERE authors.name ~ $name_search")
     ///     .push("SELECT * FROM count(($good_books))")
     ///     .run()
-    ///     .await.unwrap();
+    ///     .await
+    ///     .unwrap();
     ///      
-    /// let good_books: i32 = reply.next().unwrap();
+    /// let good_books: i32 = reply.next_one().unwrap();
     /// # }
     /// #
     /// # tokio_test::block_on( async {
@@ -193,56 +193,33 @@ impl TransactionBuilder {
         client.query(self).await
     }
 
-    /// Executes the Query, then attempts to parse the first non-skipped response
-    /// into a given type. Parse target must implement [`SurrealParseTarget`], which
-    /// already includes:
-    ///  - [`AnyRecord`](crate::any_record::AnyRecord)
-    ///  - [`Value`](serde_json::Value)
-    ///  - Anything which implements [`SurrealRecord`](crate::record::SurrealRecord)
-    /// as well as [`Option<T>`] and [`Vec<T>`] where `T` implements [`SurrealParseTarget`]
-    #[inline(always)]
-    pub async fn run_parse<Trg: SurrealParseTarget>(self) -> SdbResult<Trg> {
-        let mut reply = self.run().await?;
-        let res = reply.next_result();
-        match Trg::parse(res.result.take()) {
-            Ok(val) => Ok(val),
-            Err(err) => Err(SdbError::parse_failure::<Trg>(&res, err)),
-        }
-    }
-
     /// Executes the transaction and then parses and returns a list of results from
     /// the first non-skipped query
-    #[deprecated]
-    #[allow(deprecated)]
-    pub async fn run_parse_list<T>(self) -> SdbResult<Vec<T>>
+    pub async fn run_parse_vec<T>(self) -> SdbResult<Vec<T>>
     where
         T: for<'de> Deserialize<'de>,
     {
         let mut reply = self.run().await?;
-        reply.next_list::<T>()
+        reply.next_vec::<T>()
     }
 
     /// Executes the transaction and then parses and returns a single result from
     /// the first non-skipped query
-    #[deprecated]
-    #[allow(deprecated)]
-    pub async fn run_parse_one<T>(self) -> SdbResult<Option<T>>
+    pub async fn run_parse_opt<T>(self) -> SdbResult<Option<T>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let mut reply = self.run().await?;
+        reply.next_opt::<T>()
+    }
+
+    /// Executes the transaction and then parses and returns a non-optional single
+    /// result from the first non-skipped query
+    pub async fn run_parse_one<T>(self) -> SdbResult<T>
     where
         T: for<'de> Deserialize<'de>,
     {
         let mut reply = self.run().await?;
         reply.next_one::<T>()
-    }
-
-    /// Executes the transaction and then parses and returns a non-optional single
-    /// result from the first non-skipped query
-    #[deprecated]
-    #[allow(deprecated)]
-    pub async fn run_parse_one_exact<T>(self) -> SdbResult<T>
-    where
-        T: for<'de> Deserialize<'de>,
-    {
-        let mut reply = self.run().await?;
-        reply.next_one_exact::<T>()
     }
 }

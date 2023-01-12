@@ -26,11 +26,7 @@ impl CustomToken for TransFuncRename {
         if !parsing::peek_keyword(cursor, "as") {
             return false;
         }
-        if let Some((_ident, _cur)) = cursor.ident() {
-            true
-        } else {
-            false
-        }
+        cursor.ident().is_some()
     }
 
     fn display() -> &'static str {

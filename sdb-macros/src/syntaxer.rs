@@ -21,17 +21,17 @@ const UPDATE_CLAUSE_ORDER: &[&str] = &[
 
 /// Perform SurrealQL syntax checking without sending it to the server. this should cover
 /// basic stuff like non-marching parenthesies,
-pub fn check_syntax(vars: &Vec<String>, queries: &Vec<(String, &LitStr)>) -> Result<(), ()> {
+pub fn check_syntax(vars: &[(String, usize)], queries: &Vec<(String, &LitStr)>) -> Result<(), ()> {
     for (sql, lit) in queries {
-        if check_trans_vars(vars, &sql, lit).is_err() {
+        if check_trans_vars(vars, sql, lit).is_err() {
             continue;
         }
 
-        let Ok( regions ) = check_brackets_match(&sql, lit) else { continue };
+        let Ok( regions ) = check_brackets_match(sql, lit) else { continue };
 
-        let Ok( parts ) = query_parts(&sql, regions) else { continue };
+        let Ok( parts ) = query_parts(sql, regions) else { continue };
 
-        if check_clause_ordering(&sql, lit, &parts).is_err() {
+        if check_clause_ordering(sql, lit, &parts).is_err() {
             continue;
         }
     }
@@ -41,19 +41,20 @@ pub fn check_syntax(vars: &Vec<String>, queries: &Vec<(String, &LitStr)>) -> Res
 
 /// make sure all referenced transaction vars (things that starts with `$`) are
 /// defined before they are used
-fn check_trans_vars(vars: &Vec<String>, sql: &str, lit: &LitStr) -> Result<(), ()> {
+fn check_trans_vars(vars: &[(String, usize)], sql: &str, lit: &LitStr) -> Result<(), ()> {
     let var_finder = Regex::new(VAR_FINDER_REGEX).unwrap();
-    for var_use in var_finder.captures_iter(&sql) {
+    for var_use in var_finder.captures_iter(sql) {
         let use_name = var_use.get(1).unwrap().as_str();
-        if !vars.iter().any(|s| use_name.eq(s)) {
-            let var_start = sql.find(use_name).unwrap();
-            let sql_ptr = SqlErrorPointer::new(&sql).tick(var_start - 1, use_name.len() + 1);
-
-            emit_error!(
-                lit, "Transaction variable used before defined";
-                help = "Query variable `${}` isn't defined before it is used.{:?}", use_name, sql_ptr;
-            );
+        if vars.iter().any(|(s,_line)| use_name.eq(s)) {
+            continue;
         }
+        let var_start = sql.find(use_name).unwrap();
+        let sql_ptr = SqlErrorPointer::new(sql).tick(var_start - 1, use_name.len() + 1);
+
+        emit_error!(
+            lit, "Transaction variable used before defined";
+            help = "Query variable `${}` isn't defined before it is used.{:?}", use_name, sql_ptr;
+        );
     }
     Ok(())
 }
@@ -66,19 +67,19 @@ fn check_trans_vars(vars: &Vec<String>, sql: &str, lit: &LitStr) -> Result<(), (
 /// ```
 /// [ "Let $c = ()",  "SELECT * FROM ()",  "SELECT title FORM books" ]
 /// ```
-fn query_parts<'a>(sql: &str, mut regions: Vec<(usize, usize)>) -> Result<Vec<String>, ()> {
+fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Result<Vec<String>, ()> {
     let len = sql.chars().count() - 1;
     regions.push((0, len));
     let mut parts = vec![];
 
     for i in 0..regions.len() {
-        let (left, right) = regions[i].clone();
+        let (left, right) = regions[i];
         let mut s = sql[left..=right].to_string();
         if i > 0 {
-            let (l, r) = regions[i - 1].clone();
+            let (l, r) = regions[i - 1];
             s = format!("{}{}", &sql[left..=l], &sql[r..=right])
         }
-        if s.starts_with("(") && s.ends_with(")") {
+        if s.starts_with('(') && s.ends_with(')') {
             s = s[1..s.len() - 1].trim().to_string();
         }
 
@@ -117,9 +118,9 @@ fn check_select_clause_order(sql: &str, lit: &LitStr) {
 }
 
 fn check_brackets_match(sql: &str, lit: &LitStr) -> Result<Vec<(usize, usize)>, ()> {
-    match brackets_are_balanced(&sql) {
+    match brackets_are_balanced(sql) {
         Err((left, right)) => {
-            let sql_pt = SqlErrorPointer::new(&sql).tick(left, 1).tick(right, 1);
+            let sql_pt = SqlErrorPointer::new(sql).tick(left, 1).tick(right, 1);
 
             emit_error!( lit, "Brackets are not balanced";
                 help = "Make sure your brackets, braces, and parathesies are balanced.{:?}",

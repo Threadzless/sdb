@@ -3,41 +3,154 @@
 #![feature(let_chains, async_closure)]
 #![feature(if_let_guard)]
 
-use proc_macro::TokenStream as TokenStreamOld;
+// use proc_macro::TokenStream as TokenStreamOld;
 use proc_macro2::{Span, TokenStream};
+use proc_macro_error::emit_error;
 use quote::{quote, ToTokens};
-use syn::{parse::*, punctuated::Punctuated, token::*, *};
+use syn::{parse::*, punctuated::Punctuated, token::*, * };
 
-use crate::*;
+use crate::parts::*;
 
 pub(crate) struct QueryFunc {
     pub async_tok: Option<Token!(!)>,
     pub args: TransFuncArgs,
-    pub _split: FatArrow,
-    pub line: SelectQueryLineAnon,
+    pub _arrow: FatArrow,
+    pub _bracks: Brace,
+    pub lines: Punctuated<UniversalLine, Token![;]>,
 }
 
 impl Parse for QueryFunc {
     fn parse(input: ParseStream) -> Result<Self> {
-        Ok(Self {
+        let context;
+        let me = Self {
             async_tok: input.parse()?,
             args: input.parse()?,
-            _split: input.parse()?,
-            line: input.parse()?,
-        })
+            _arrow: input.parse()?,
+            _bracks: braced!(context in input),
+            lines: context.parse_terminated( UniversalLine::parse )?,
+        };
+
+        me.verify_formatting();
+
+        Ok(me)
     }
 }
 
 impl QueryFunc {
-    pub fn extract_parts(
-        &self,
-        trans: &Ident,
-        on_result: &TokenStream,
-    ) -> (TokenStream, Option<TokenStream>) {
-        let line = &self.line;
-        let steps = quote! { #line };
-        let outs = self.line.method_call(); //trans, &on_result);
 
-        (steps, Some(outs))
+    pub fn verify_formatting(&self) {
+        let mut tail_count = 0;
+        let mut parse_count = 0;
+        for line in &self.lines {
+            match line {
+                UniversalLine::Parse { .. } => parse_count += 1,
+                UniversalLine::ParseTail { .. } => tail_count += 1,
+                _ => continue
+            }
+        }
+
+        if tail_count > 0 && parse_count > 0 {
+            // emit_error!(
+
+            // )
+        }
+    }
+
+    pub fn prepare( &self, trans_db: &Ident ) -> ( TokenStream, TokenStream, TokenStream ) {
+        let result_handle = match self.async_tok {
+            Some(_) => quote!{ .unwrap() },
+            None => quote!{ ? },
+        };
+
+        let mut unpack = TokenStream::new();
+        let mut push_steps = TokenStream::new();
+
+        for line in &self.lines {
+            use UniversalLine as Ul;
+            match line {
+                Ul::Import { source, _dollar, var_name, .. } => {
+                    let span = var_name.span().join(_dollar.span)
+                        .unwrap_or( var_name.span() );
+                    let var_str = LitStr::new(var_name.to_string().as_str(), span);
+                    push_steps.extend( quote!( .push_var( #var_str, ( #source ) ) ) )
+                },
+
+                Ul::ToVar { sql, _dollar, var_name, .. } => {
+                    let span = var_name.span().join(_dollar.span)
+                        .unwrap_or( var_name.span() );
+                    let var_str = LitStr::new(var_name.to_string().as_str(), span);
+                    push_steps.extend( quote!( .query_to_var( #var_str, #sql ) ) )
+                },
+
+                Ul::Ignored { sql } => {
+                    push_steps.extend( quote!( .push_skipped( #sql ) ) )
+                },
+
+                Ul::Parse { sql, is_mut, store, path, .. } => {
+                    push_steps.extend( quote!( .push( #sql ) ) );
+                    let call = path.call_next();
+                    unpack.extend(quote!{
+                        let #is_mut #store = #trans_db . #call #result_handle;
+                    })
+                },
+
+                Ul::ParseTail { sql, _as, path } => {
+                    push_steps.extend( quote!( .push( #sql ) ) );
+                    let call = path.call_next();
+                    
+                    unpack = quote!{ #call #result_handle };
+                },
+            }
+        }
+
+        return (push_steps, unpack, result_handle)
+    }
+
+    pub fn has_trailing(&self) -> bool {
+        self.lines.iter().any(|l| {
+            match l {
+                UniversalLine::ParseTail { .. } => true,
+                _ => false
+            }
+        } )
+    }
+
+    pub fn arg_vars(&self) -> Vec<(String, usize)> {
+        let mut vars = Vec::new();
+        for (idx, _field) in self.args.fields.iter().enumerate() {
+            vars.push((format!("{idx}"), 0))
+        }
+
+        for (line_num, line) in self.lines.iter().enumerate() {
+            match line {
+                UniversalLine::Import { var_name, .. } => {
+                    vars.push((var_name.to_string(), line_num));
+                },
+                UniversalLine::ToVar { var_name, .. } => {
+                    vars.push((var_name.to_string(), line_num));
+                },
+                _ => continue,
+            }
+        }
+        vars
+    }
+
+    pub fn full_queries(&self) -> Vec<(String, &LitStr)> {
+        let mut queries = Vec::new();
+
+        for line in self.lines.iter() {
+            match line {
+                UniversalLine::Import { .. } => continue,
+                UniversalLine::Ignored { sql }
+                | UniversalLine::ToVar { sql, .. }
+                | UniversalLine::Parse { sql, .. }
+                | UniversalLine::ParseTail { sql, .. }
+                => {
+                    queries.push(( sql.complete_sql(), &sql.literal ))
+                },
+            }
+        }
+
+        queries
     }
 }

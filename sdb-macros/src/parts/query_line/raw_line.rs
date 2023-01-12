@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::{parse::*, *};
 
-pub(crate) struct RawQueryLine {
+pub struct RawQueryLine {
     pub sql: LitStr,
 }
 

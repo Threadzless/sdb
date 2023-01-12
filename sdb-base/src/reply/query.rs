@@ -14,17 +14,30 @@ pub struct QueryReply {
 }
 
 impl QueryReply {
-    pub fn parse<T: for<'de> Deserialize<'de>>(&mut self) -> Vec<T> {
-        serde_json::from_value(self.result.take()).unwrap()
+    pub fn parse_vec<T: for<'de> Deserialize<'de>>(&mut self) -> Vec<T> {
+        let res = self.result.clone();
+        serde_json::from_value(res).unwrap()
     }
 
-    pub fn parse_one<T: for<'de> Deserialize<'de>>(&mut self) -> Option<T> {
-        let Value::Array( mut arr ) = self.result.take() else {
+    pub fn parse_one<T: for<'de> Deserialize<'de>>(&mut self) -> T {
+        self.parse_opt().unwrap()
+    }
+
+    pub fn parse_opt<T: for<'de> Deserialize<'de>>(&mut self) -> Option<T> {
+        let Value::Array( mut arr ) = self.result.clone() else {
             panic!( "Invalid response: Expected array, found \n\n{:?}\n\n", self.result )
         };
-        match arr.first_mut() {
-            None => None,
-            Some(one) => Some(serde_json::from_value::<T>(one.take()).unwrap()),
+        let Some( one ) = arr.first_mut() else { return None };
+        if let Ok(one) = serde_json::from_value::<T>(one.clone()) {
+            return Some(one);
+        }
+
+        match one.take() {
+            Value::Object(mut obj) if obj.keys().len() == 1 => {
+                let (_, inner) = obj.iter_mut().next().unwrap();
+                serde_json::from_value::<T>(inner.take()).ok()
+            }
+            _ => None,
         }
     }
 
@@ -79,11 +92,13 @@ impl<'de> Visitor<'de> for QueryResultVisitor {
             }
         }
 
-        if time.is_some() && result.is_some() && status.is_some() {
+        if let Some( time ) = time &&
+        let Some( result ) = result &&
+        let Some( status ) = status {
             Ok(QueryReply {
-                time: time.unwrap(),
-                result: result.unwrap(),
-                status: status.unwrap(),
+                time,
+                result,
+                status,
                 query: None,
             })
         } else if let Some(detail) = detail {
@@ -103,13 +118,13 @@ fn parse_durration(s: &str) -> Duration {
         Duration::from_secs_f64(float / 1_000_000.0)
     } else if s.ends_with("ms") {
         Duration::from_secs_f64(float / 1_000.0)
-    } else if s.ends_with("s") {
+    } else if s.ends_with('s') {
         Duration::from_secs_f64(float)
     } else if s.ends_with("ns") {
         Duration::from_secs_f64(float / 1_000_000_000.0)
     } else if s.ends_with("ps") {
         Duration::from_secs_f64(float / 1_000_000_000_000.0)
     } else {
-        panic!("Unrecognized duration suffix: {}", s)
+        panic!("Unrecognized duration suffix: {s}")
     }
 }

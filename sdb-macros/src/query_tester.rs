@@ -1,12 +1,7 @@
+use proc_macro_error::emit_call_site_warning;
 use reqwest::blocking::*;
 use serde_json::Value;
 use std::env::{self, VarError};
-use proc_macro_error::{
-    // emit_call_site_error,
-    emit_call_site_warning,
-};
-
-
 
 const DB_ACCESS_FAILED: &str = r#"Verify your connection string is set correctly, in .cargo/config.toml:
 [env]
@@ -30,9 +25,8 @@ create a this file in your project directory:
 Note: the protocol MUST be http/https
 "#;
 
-/// Attempt to execute the query on 
+/// Attempt to execute the query on
 pub(crate) fn live_query_test(full_sql: String) {
-
     let Ok( mut req ) = build_request() else {
         emit_call_site_warning!( "`SURREAL_URL` not a valid connection string";
             help = ENV_VAR_NOT_SET
@@ -43,12 +37,12 @@ pub(crate) fn live_query_test(full_sql: String) {
     req = req.body(format!("BEGIN;\n{full_sql};\nCANCEL;"));
 
     let res = match req.send() {
-        Ok( res ) => res,
-        Err( err ) => {
-            return emit_call_site_warning!( 
+        Ok(res) => res,
+        Err(err) => {
+            return emit_call_site_warning!(
                 "Unable to contact SurrealDB to verify query syntax";
                 help = DB_ACCESS_FAILED;
-                info = "Error details: {:?}", err;            
+                info = "Error details: {:?}", err;
             );
         }
     };
@@ -69,18 +63,18 @@ pub(crate) fn live_query_test(full_sql: String) {
     }
 }
 
-fn build_request( ) -> Result<RequestBuilder, VarError> {
+fn build_request() -> Result<RequestBuilder, VarError> {
     let host = env::var("SURREAL_HOST")?;
     let ns = env::var("SURREAL_NS")?;
     let db = env::var("SURREAL_DB")?;
 
     let client = Client::new();
     let url = format!("http://{host}/sql");
-    let mut post = client.post(url)
+    let mut post = client
+        .post(url)
         .header("Accept", "application/json")
         .header("NS", ns)
         .header("DB", db);
-        
 
     match (env::var("SURREAL_USER"), env::var("SURREAL_PASS")) {
         (Ok(user), Ok(pass)) => {
@@ -88,9 +82,9 @@ fn build_request( ) -> Result<RequestBuilder, VarError> {
         }
         (Ok(user), Err(_)) => {
             post = post.basic_auth(user, Option::<String>::None);
-        },
-        _ => { }
+        }
+        _ => {}
     };
-    
-    Ok( post )
+
+    Ok(post)
 }

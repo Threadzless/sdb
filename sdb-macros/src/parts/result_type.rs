@@ -5,7 +5,7 @@ use syn::{parse::*, punctuated::Punctuated, token::*, Type, *};
 use proc_macro_error::{__export::*, abort};
 
 #[derive(Debug)]
-pub(crate) enum QueryResultScale {
+pub enum QueryResultScale {
     Option(TypePath),
     Single(TypePath),
     Vec(TypePath),
@@ -18,18 +18,18 @@ pub(crate) enum QueryResultScale {
 const ERROR_HELP: &str = r#"Only types which implement serde::Deserialise are valid here. "#;
 
 #[derive(Debug)]
-pub(crate) struct QueryResultType {
+pub struct QueryResultType {
     // pub _colon: Colon,
     pub scale: QueryResultScale,
 }
 
 impl QueryResultType {
-    pub fn cast_type(&self) -> TokenStream {
+    pub fn call_next(&self) -> TokenStream {
         use QueryResultScale::*;
         match &self.scale {
-            Option(ty) => quote!( Option< #ty > ),
-            Single(ty) => quote!( #ty ),
-            Vec(ty) => quote!( Vec< #ty > ),
+            Option( ty ) => quote!(next_opt::< #ty >()),
+            Single( ty ) => quote!(next_one::< #ty >()),
+            Vec( ty ) => quote!(next_vec::< #ty >()),
         }
     }
 }
@@ -90,7 +90,7 @@ impl Parse for QueryResultType {
             Type::Slice( TypeSlice { elem: box Type::Path( path ), .. } ) => {
                 Ok( Self {
                     // _colon: colon,
-                    scale: Qrs::Vec( path.clone() ),
+                    scale: Qrs::Vec( path ),
                 })
             },
 

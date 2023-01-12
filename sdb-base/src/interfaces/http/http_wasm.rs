@@ -57,10 +57,6 @@ impl SurrealInterface for HttpSurrealInterface {
 
         let headers = res.headers();
 
-        for (key, val) in headers.entries() {
-            log::info!("    {} => {}", key, val);
-        }
-
         header_check(
             "content-type",
             "application/json",

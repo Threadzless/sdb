@@ -1,15 +1,9 @@
-use std::{
-    fmt::Debug,
-    ops::{Deref, DerefMut},
-};
+use std::fmt::Debug;
 
-#[allow(unused_imports)]
-use proc_macro_error::{emit_error, emit_warning};
-
+use proc_macro_error::emit_error;
+use proc_macro2::Delimiter;
 use quote::ToTokens;
-
-#[allow(unused_imports)]
-use syn::{parse::*, punctuated::Punctuated, *};
+use syn::{parse::*, token::CustomToken, *, punctuated::Punctuated};
 
 const UNKNOWN_METHOD_HELP: &str = r#"Expected one of the following methods, or no method:
  - pluck
@@ -21,34 +15,45 @@ const UNKNOWN_METHOD_HELP: &str = r#"Expected one of the following methods, or n
 "#;
 
 #[derive(Debug)]
-pub(crate) struct QueryMethod {
-    call: ExprCall,
-}
-
-impl Deref for QueryMethod {
-    type Target = ExprCall;
-    fn deref(&self) -> &Self::Target {
-        &self.call
-    }
-}
-
-impl DerefMut for QueryMethod {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.call
-    }
+pub struct QueryMethod {
+    _dot: Token![.],
+    ident: Ident,
+    _paren: token::Paren,
+    args: Punctuated<Lit, Token![,]>,
 }
 
 impl Parse for QueryMethod {
     fn parse(input: ParseStream) -> Result<Self> {
+        let context;
         Ok(Self {
-            call: input.parse()?,
+            _dot: input.parse()?,
+            ident: input.parse()?,
+            _paren: parenthesized!(context in input),
+            args: context.parse_terminated( Lit::parse )?,
         })
+    }
+}
+
+impl CustomToken for QueryMethod {
+    fn peek(cursor: buffer::Cursor) -> bool {
+        let cur = match cursor.punct() {
+            Some((punct, cur)) if punct.as_char().eq(&'.') => cur,
+            _ => cursor,
+        };
+        let Some((_, cur)) = cur.ident() else { return false };
+        let Some((_, _, _)) = cur.group(Delimiter::Parenthesis) else { return false };
+
+        true
+    }
+
+    fn display() -> &'static str {
+        todo!()
     }
 }
 
 impl QueryMethod {
     pub fn name(&self) -> String {
-        self.func.to_token_stream().to_string()
+        self.ident.to_token_stream().to_string()
     }
 
     pub fn arg_count(&self) -> usize {
@@ -57,8 +62,8 @@ impl QueryMethod {
 
     pub fn arg_usize(&self, index: usize) -> Option<usize> {
         let Some( arg ) = self.args.iter().nth( index ) else { return None };
-        let Expr::Lit( ExprLit { lit: Lit::Int( i ), .. } ) = arg else { return None };
-
+        // let Expr::Lit( ExprLit { lit: Lit::Int( i ), .. } ) = arg else { return None };
+        let Lit::Int( i ) = arg else { return None };
         match i.base10_parse::<usize>() {
             Ok(i) => Some(i),
             Err(_) => None,
@@ -67,7 +72,8 @@ impl QueryMethod {
 
     pub fn arg_str(&self, index: usize) -> Option<String> {
         let Some( arg ) = self.args.iter().nth( index ) else { return None };
-        let Expr::Lit( ExprLit { lit: Lit::Str( s ), .. } ) = arg else { return None };
+        // let Expr::Lit( ExprLit { lit: Lit::Str( s ), .. } ) = arg else { return None };
+        let Lit::Str( s ) = arg else { return None };
         Some(s.value())
     }
 
@@ -81,8 +87,8 @@ impl QueryMethod {
             "page" => quote_page(self, sql),
             "one" => quote_one(self, sql),
             _ => {
-                return emit_error!(
-                    self.func, "Unrecognized shortcut method `{}`", method_name;
+                emit_error!(
+                    self.ident, "Unrecognized shortcut method `{}`", method_name;
                     help = UNKNOWN_METHOD_HELP;
                     note = "See the crate documentation comments for a list of valid methods"
                 )
@@ -101,7 +107,7 @@ fn quote_shuffle(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.call, "Unrecognised Method arguments";
+                method.ident, "Unrecognised Method arguments";
                 help = r#"shuffle( [ <limit> ] )
 - <limit>: usize - the maximum number of records to get"#,
             )
@@ -122,7 +128,7 @@ fn quote_pluck(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.call, "Unrecognised Method arguments";
+                method.ident, "Unrecognised Method arguments";
                 help = r#"pluck( <field> [ , <limit> ] ) 
 - <field>: str - the name of the field to extract
 - <limit>: usize - optional, the maximum number of records to get"#,
@@ -144,7 +150,7 @@ fn quote_limit(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.call, "Unrecognised Method arguments";
+                method.ident, "Unrecognised Method arguments";
                 help = r#"limit( <limit> [ , <start> ] )
 - <limit>: usize - the maximum number of records to get
 - <start>: usize - optional, "#,
@@ -161,7 +167,7 @@ fn quote_count(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.call, "Unrecognised Method arguments";
+                method.ident, "Unrecognised Method arguments";
                 help = r#"count( ) expects 0 args"#,
             )
         }
@@ -177,7 +183,7 @@ fn quote_page(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.call, "Unrecognised Method arguments";
+                method.ident, "Unrecognised Method arguments";
                 help = r#"page( <size> , <page> )
 - <size>: usize - the number of records on each page
 - <page>: usize - which page of records to get, 1 indexed"#,
@@ -194,7 +200,7 @@ fn quote_one(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.call, "Unrecognised Method arguments";
+                method.ident, "Unrecognised Method arguments";
                 help = r#"one( ) expects 0 args"#,
             )
         }

@@ -24,16 +24,12 @@ impl SurrealRequest {
 
     pub fn query(sql: impl ToString) -> Self {
         let id = String::from("12345");
-        let req = Self::new(id, "query", vec![sql.to_string()]);
-
-        req
+        Self::new(id, "query", vec![sql.to_string()])
     }
 
     pub fn use_ns_db(ns: &str, db: &str) -> Self {
         let id = String::from("12345");
-        let req = Self::new(id, "use", vec![ns.to_string(), db.to_string()]);
-
-        req
+        Self::new(id, "use", vec![ns.to_string(), db.to_string()])
     }
 
     pub fn stringify(&self) -> String {

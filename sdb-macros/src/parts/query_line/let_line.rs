@@ -6,7 +6,7 @@ use syn::{parse::*, token::*, *};
 
 use crate::QuerySqlBlock;
 
-pub(crate) struct LetQueryLine {
+pub struct LetQueryLine {
     pub _dollar: Dollar,
     pub var: Ident,
     pub _eq: syn::token::Eq,
@@ -31,7 +31,7 @@ impl ToTokens for LetQueryLine {
         use LetQueryInput::*;
         tokens.extend(match &self.input {
             Query(query) => {
-                let base_sql = &query.sql;
+                let base_sql = &query.literal;
                 let sql_lit = LitStr::new(&base_sql.value(), base_sql.span());
                 quote!(
                     .query_to_var( #var, #sql_lit )
@@ -47,7 +47,7 @@ impl ToTokens for LetQueryLine {
     }
 }
 
-pub(crate) enum LetQueryInput {
+pub enum LetQueryInput {
     Query(QuerySqlBlock),
     Block(ExprBlock),
     Paren(ExprParen),

@@ -84,10 +84,8 @@ impl SurrealInterface for WSSurrealInterface {
             panic!("Recieved a Binary payload - WSSurrealInterface::send")
         };
 
-        #[cfg(feature = "log")]
-        log::info!("SurrealDB response: \n{}", payload);
-
         let response = serde_json::from_str::<SurrealResponse>(&payload).unwrap();
+
         if !response.check_id(&request.id) {
             println!(
                 "\n\n{payload}\n\n{:?} =/= {:?}\n\n",

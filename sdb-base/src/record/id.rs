@@ -15,7 +15,7 @@ impl RecordId {
     /// TODO: check for spaces, too long, invalid characters, etc.
     pub fn parse(text: impl ToString) -> SdbResult<Self> {
         let text = text.to_string();
-        match text.split_once(":") {
+        match text.split_once(':') {
             Some((table, key)) => Ok(Self::new(table, key)),
             None => Err(SdbError::UnableToParseAsRecordId {
                 input: text.clone(),
@@ -84,7 +84,7 @@ impl<'de> Visitor<'de> for RecordIdVisitor {
     }
 
     fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
-        match RecordId::parse(&v) {
+        match RecordId::parse(v) {
             Ok(id) => Ok(id),
             Err(_) => Err(E::custom("Cannot parse input as a RecordId")),
         }
