@@ -3,99 +3,136 @@ use serde::{Deserialize, Serialize};
 
 async fn run() -> Result<(), SdbError> {
     // Open a new client
-    let client = SurrealClient::open("127.0.0.1:8000/example/demo")
+    let client = SurrealClient::open("ws://127.0.0.1:8000/example/demo")
         .auth_basic("test_user", "test_pass")
-        .protocol(Protocol::Socket { secure: false })
         .build()?;
 
 
-    //
-    //
-    // Run a simple query
-    sdb::query!( (client) => {
-        "SELECT * FROM books ORDER BY rand() LIMIT 5" => five_random_books: Vec<BookSchema>
+    // Execute a basic query
+    sdb::query!( client => {
+        "SELECT * FROM 12" => twelve: isize
     });
-    println!("1) Five books:");
-    for book in five_random_books {
-        println!("   - {}", book.title)
+    if twelve == 12 {
+        println!("1) Twelve does in fact equal 12");
     }
-    println!("");
 
-    //
-    //
-    // Introduce a variable
-    let search_term = "George";
-    sdb::query!( (client, search_term) => {
-        "SELECT * FROM books WHERE author.name ~ $0 LIMIT 3" => books_by_george: Vec<BookSchema>
-    });
-    println!("2) Three books by someone named '{}'", search_term);
-    for book in books_by_george {
-        println!("   - {}", book.title)
+    // Alternative syntax for single values
+    let twelve_two = sdb::query!( client => { "SELECT * FROM 12" as isize });
+    if twelve_two == 12 {
+        println!("   Twelve continues to equal 12");
     }
-    println!("");
 
-    //
-    //
-    // Fetch nested data (same schema struct can be used)
-    let some_books = sdb::query!( (client) => {
-        "SELECT * FROM books LIMIT 3 FETCH author" as Vec<BookSchema>
+
+    // Now multiple queries. Results are parsed with `serde::Deserialize`
+    sdb::query!( client => {
+        // Run this query, ignore the results.
+        "UPDATE books SET word_count = 0 WHERE word_count < 0";
+
+        // Zero or more results
+        "SELECT * FROM books ORDER rand()" => all_books: Vec<BookSchema>;
+
+        // Just one. Getting zero results throws an error
+        "SELECT * FROM books ORDER rand()" => a_book: BookSchema;
+
+        // Returns the first results, or None if there are 0 results.
+        "SELECT * FROM books ORDER rand()" => another_book: Option<BookSchema>;
     });
-    println!("3) Three books and their authors:");
+
+    println!("2) There are {} books in total", all_books.len());
+    println!("   There is, allegedly, a book called {}", a_book.title);
+    if let Some( ab ) = another_book {
+        println!("   And maybe a book called {}", ab.title);
+    }
+
+
+    // Now store results in a mutable field
+    sdb::query!( client => {
+        "SELECT * FROM books ORDER rand() LIMIT 5" => mut five_books: Vec<BookSchema> 
+    });
+
+    println!("3) Five books:");
+    while let Some( book ) = five_books.pop() {
+        println!("     - {}", book.title)
+    }
+
+
+    // Fetch nested data
+    sdb::query!( client => {
+        "SELECT * FROM books LIMIT 3 FETCH author" => some_books: Vec<BookSchema>;
+    });
+    println!("4) Three books and their authors:");
     for book in some_books {
-        println!("   - '{}' by {}", book.title, book.author().name)
+        println!("     - '{}' by {}", book.title, book.author().name)
     }
-    println!("");
 
-    //
-    //
-    // Use a sugar function
-    let short_book_count = sdb::query!( ( client ) => {
-        "SELECT * FROM books WHERE word_count < 75_000" .count() as i32
+
+    // Inject variables
+    let search_term = "George";
+    sdb::query!( client =[ search_term, 6 ]=> {
+        // $0 = `search_term`,  $1 = 6, and so on
+        "SELECT * FROM books WHERE author.name ~ $0 LIMIT $1"
+            => by_george: Vec<BookSchema>;
+
+        // passed vars in =[ .. ]=> can also be refered to by name
+        "SELECT * FROM books WHERE author.name ~ $search_term LIMIT $1"
+            => not_by_george: Vec<BookSchema>;
     });
-    println!("4) There are {short_book_count} books in the archive with fewer than 75k words");
-    println!("");
+    println!("5) Books by '{}'", search_term);
+    for book in by_george {
+        println!("     - {}", book.title)
+    }    
+    println!("   Books they didn't write:");
+    for book in not_by_george {
+        println!("     - {}", book.title)
+    }
 
-    //
-    //
-    // Break up complex queries into multiple lines
-    let longest_book_title = sdb::query!( ( client ) => {
+    // Use Query Sugar™
+    // See README or macro docs for a list of sugars
+    sdb::query!( client => {
+        "SELECT * FROM books" .count() => book_count: i32;
+
+        // This does the same as the above,
+        "SELECT * FROM count(( SELECT * FROM books ))";
+    });
+    println!("6) There are {book_count} books in the archive");
+
+
+    // Break up queries into multiple lines.
+    sdb::query!( client => {
         // Store first query result in a transaction variable
-        "SELECT * FROM books ORDER word_count DESC" => $longest;
+        "SELECT * FROM books ORDER BY word_count DESC" => $longest;
 
         // Run a query on the results
-        "SELECT title FROM $longest LIMIT 1" as String
+        "SELECT * FROM $longest LIMIT 3" => mut longest_books: Vec<BookSchema>
     });
-    println!("5) The longest book is called {longest_book_title:?}");
-    println!("");
-    
-    //
-    //
-    // Run a multiple queries together.
-    // Unlike single queries, 
+    let longest = longest_books.remove(0);
+    println!("7) The longest book is called '{}'", longest.title);
+
+
+    // Run multiple queries together.
     let long_word_count = 250000;
-    sdb::query!( ( client, long_word_count ) => {
+    sdb::query!( client =[ long_word_count ]=> {
         // Store results of a query in a transaction variable.
         // Queries that follow can act on these results
         "SELECT * FROM books WHERE word_count > $0 ORDER word_count DESC" => $longest;
 
         // Get just the title of the first result of `$longest`, aka, the book
         // with the most words, and store it in
-        "SELECT title FROM $longest LIMIT 1" => longest_title: String;
+        "$longest" .pluck("title", 1) => longest_title: String;
 
         // Get the number of books in total with more than 250k words
-        "SELECT * FROM $longest" . count() => long_count: i32;
+        "SELECT * FROM $longest" .count() => long_count: i32;
 
-        // Retrieve all of the books, with nested data
+        // Retrieve 10 books, with nested data
         "SELECT * FROM books FETCH author" .limit(10) => stories: Vec<BookSchema>;
     });
 
-    println!("6) Longest books: '{longest_title}'");
+    println!("8) Longest books: '{longest_title}'");
     println!("   There are {long_count} books with over {long_word_count} words");
     println!("   Several books:");
     for s in stories {
         println!("    - '{}' by {}", s.title, s.author().name)
     }
-    println!("");
 
     Ok(())
 }
@@ -130,7 +167,7 @@ async fn main() {
 
     // Logging
     TermLogger::init(
-        LevelFilter::Info,
+        LevelFilter::Warn,
         Config::default(),
         TerminalMode::Mixed,
         ColorChoice::Auto,

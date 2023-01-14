@@ -25,12 +25,12 @@ impl TransactionBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use sdb_base::prelude::*;
+    /// # use sdb_base as sdb;
+    /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # tokio_test::block_on( async {
     /// # let client = SurrealClient::demo();
-    /// #
     /// let mut reply = client.transaction()
     ///     .push("SELECT * FROM books LIMIT 5")
     ///     .run()
@@ -62,12 +62,12 @@ impl TransactionBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use sdb_base::prelude::*;
+    /// # use sdb_base as sdb;
+    /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # tokio_test::block_on( async {
     /// # let client = SurrealClient::demo();
-    /// #
     /// let mut reply = client.transaction()
     ///     .push_var("search_term", "Spacetime")
     ///     .push("SELECT * FROM books WHERE title ~ $search_term")
@@ -76,7 +76,6 @@ impl TransactionBuilder {
     ///     
     /// let books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
-    /// #
     /// # #[derive(Clone, Deserialize)]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,
@@ -106,12 +105,12 @@ impl TransactionBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use sdb_base::prelude::*;
+    /// # use sdb_base as sdb;
+    /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # tokio_test::block_on( async {
     /// # let client = SurrealClient::demo();
-    /// #
     /// let mut reply = client.transaction()
     ///     .push_skipped("USE DB demo")
     ///     .push("SELECT * FROM books LIMIT 5")
@@ -120,7 +119,6 @@ impl TransactionBuilder {
     ///     
     /// let five_books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
-    /// #
     /// # #[derive(Clone, Deserialize)]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,

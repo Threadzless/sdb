@@ -10,34 +10,37 @@ async fn run() -> Result<(), SdbError> {
         .protocol(Protocol::Socket { secure: false })
         .build()?;
 
+    let search_term = "George";
+
     // Run a query on `client`
-    // let books_by_george = sdb::query!( (client, "George") => {
-    //     // $0 is the refers to the first var aside from client. Vars can be either
-    //     // literals or expressions, and will be named in order of occurance
-    //     "SELECT * FROM books WHERE <-wrote<-authors.name ?~ $0" => Vec<BookSchema>
-    // });
-    let books_by_george = client.transaction()
-        .push("SELECT * FROM books WHERE authors.name ~ $0 LIMIT 10")
-        .run_parse_vec::<BookSchema>()
-        .await?;
+    sdb::query!( client =[ search_term ] => {
+        // $0 is the refers to the first var inside the brackets. Vars can be 
+        // literals or expressions. if the var is a 
+        "SELECT * FROM books WHERE author.name ~ $0"
+            => books_by: Vec<BookSchema>;
+        
+        "SELECT * FROM books WHERE author.name !~ $search_term"
+            .count() => books_not_by_count: usize;
+    });
 
     // List results
-    println!("Books by people named 'George':");
-    for s in books_by_george {
+    println!("There are {books_not_by_count} NOT by people named {search_term}");
+    println!("Books by people named {search_term}");
+    for s in books_by {
         println!("  {}   ~{} words", s.title, s.word_count.unwrap_or_default())
     }
-
-    // Spacing for terminal ease of reading
-    println!("");
 
 
     let min_word_count = 250000;
 
-    // Run a transaction (errors are automatically bubbled)
-    sdb::query!( ( client, min_word_count ) => {
+    // Run multiple queries together (errors are automatically bubbled)
+    sdb::query!( client => {
+
+        { min_word_count } => $mwc;
+
         // Store results of a query in a transaction variable.
         // Queries that follow can act on these results
-        "SELECT * FROM books WHERE word_count > $0 ORDER word_count DESC" => $longest;
+        "SELECT * FROM books WHERE word_count > $mwc ORDER word_count DESC" => $longest;
 
         // Get just the title of the first result of `$longest`,
         // aka, the book with the most words

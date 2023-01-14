@@ -36,13 +36,17 @@ macro_rules! example {
         use serde::Deserialize;
 
         tokio_test::block_on( async {
-            main_test( ).await.unwrap()
+            let client = SurrealClient::open("ws://127.0.0.1:8000/example/demo")
+                .auth_basic("test_user", "test_pass")
+                .build()
+                .unwrap();
+
+            main_test( client ).await.unwrap()
         });
 
-        async fn main_test( ) -> SdbResult<()> {
-            let client = SurrealClient::demo();
+        async fn main_test( client: SurrealClient ) -> SdbResult<()> {
             $($arg)+
-            ;
+
             Ok( () )
         }
 
@@ -51,7 +55,7 @@ macro_rules! example {
         struct BookSchema {
             pub id: RecordId,
             pub title: String,
-            pub word_count: usize,
+            pub word_count: Option<usize>,
             pub summary: Option<String>,
             pub author: RecordLink<AuthorSchema>,
         }
@@ -65,5 +69,3 @@ macro_rules! example {
         }
     };
 }
-
-

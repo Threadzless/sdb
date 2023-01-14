@@ -50,18 +50,14 @@ pub fn brackets_are_balanced(sql: &str) -> Result<Vec<(usize, usize)>, (usize, u
             Bracket::Close(_, right_idx) => {
                 return Err( (0, right_idx) )
             }
-            // _ => {}
         }
     }
-    // if ! brackets.is_empty() {
-    //     let right_idx = sql.chars().count();
-    //     let (_, left_idx) = brackets.last().unwrap();
-    //     // Not all brackets are matched
-    //     Err( ( *left_idx, right_idx ) )
-    // }
-    // else {
-    //     Ok( () )
-    // }
-    // regions.push((0, sql.chars().count()));
-    Ok(regions)
+    if let Some(last) = stack.last() {
+        // Not all brackets are matched
+        let right_idx = sql.chars().count();
+        Err((last.pos(), right_idx))
+    } else {
+        // regions.push((0, sql.chars().count()));
+        Ok(regions)
+    }
 }

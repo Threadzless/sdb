@@ -31,6 +31,9 @@ pub fn check_syntax(vars: &[(String, usize)], queries: &Vec<(String, &LitStr)>) 
 
         let Ok( parts ) = query_parts(sql, regions) else { continue };
 
+        #[cfg(feature = "macro-print")]
+        println!("Checking Syntax for query\n > {sql}");
+
         if check_clause_ordering(sql, lit, &parts).is_err() {
             continue;
         }
@@ -45,7 +48,7 @@ fn check_trans_vars(vars: &[(String, usize)], sql: &str, lit: &LitStr) -> Result
     let var_finder = Regex::new(VAR_FINDER_REGEX).unwrap();
     for var_use in var_finder.captures_iter(sql) {
         let use_name = var_use.get(1).unwrap().as_str();
-        if vars.iter().any(|(s,_line)| use_name.eq(s)) {
+        if vars.iter().any(|(s, _line)| use_name.eq(s)) {
             continue;
         }
         let var_start = sql.find(use_name).unwrap();
@@ -64,46 +67,52 @@ fn check_trans_vars(vars: &[(String, usize)], sql: &str, lit: &LitStr) -> Result
 /// Input: `LET $c = (SELECT * FROM (SELECT title FROM books))`
 ///
 /// Output:
-/// ```
-/// [ "Let $c = ()",  "SELECT * FROM ()",  "SELECT title FORM books" ]
+/// ```rust,no_test
+/// [ "Let $c = ()",  "SELECT * FROM ()",  "SELECT title FORM books" ];
 /// ```
 fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Result<Vec<String>, ()> {
+    let mut base_sql = String::from(sql);
+
     let len = sql.chars().count() - 1;
     regions.push((0, len));
     let mut parts = vec![];
 
-    for i in 0..regions.len() {
-        let (left, right) = regions[i];
-        let mut s = sql[left..=right].to_string();
-        if i > 0 {
-            let (l, r) = regions[i - 1];
-            s = format!("{}{}", &sql[left..=l], &sql[r..=right])
-        }
-        if s.starts_with('(') && s.ends_with(')') {
-            s = s[1..s.len() - 1].trim().to_string();
-        }
+    for (left, right) in regions {
+        let space = left..=right;
+        let part = base_sql[space.clone()].replace('\x00', "");
+        parts.push(part);
 
-        parts.push(s)
+        base_sql = base_sql
+            .chars()
+            .enumerate()
+            .map(|(i, c)| match space.contains(&i) {
+                true => '\x00',
+                false => c,
+            })
+            .collect::<String>();
     }
 
     Ok(parts)
 }
 
-fn check_clause_ordering(sql: &str, lit: &LitStr, parts: &Vec<String>) -> Result<(), ()> {
+fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Result<(), ()> {
     for part in parts {
+        #[cfg(feature = "macro-print")]
+        println!("   > {part}");
+
         if part.starts_with("SELECT") {
-            check_select_clause_order(sql, lit);
+            check_select_clause_order(&part, lit);
         }
     }
     Ok(())
 }
 
-fn check_select_clause_order(sql: &str, lit: &LitStr) {
+fn check_select_clause_order(part: &str, lit: &LitStr) {
     let mut last_name = "SELECT";
     let mut last_index = 0;
 
     for clause in &SELECT_CLAUSE_ORDER[1..] {
-        let Some( now_idx ) = sql.find(clause) else { continue };
+        let Some( now_idx ) = part.find(clause) else { continue };
         if now_idx < last_index {
             emit_error!(
                 lit, "SELECT Clauses out of order";

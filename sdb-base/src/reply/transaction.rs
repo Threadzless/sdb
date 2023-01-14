@@ -45,7 +45,6 @@ impl TransactionReply {
         reply
     }
 
-
     /// Get zero or more results
     pub fn next_vec<T>(&mut self) -> Result<Vec<T>, SdbError>
     where

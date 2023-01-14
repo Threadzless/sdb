@@ -5,8 +5,7 @@ use proc_macro_error::{emit_error, emit_warning};
 use quote::{quote, ToTokens};
 use syn::{parse::*, LitStr, Token};
 
-mod sql_method;
-pub use sql_method::*;
+use super::QueryMethod;
 
 pub struct QuerySqlBlock {
     pub literal: LitStr,
@@ -21,7 +20,7 @@ impl Parse for QuerySqlBlock {
         };
 
         while input.peek(Token![.]) {
-            me.methods.push( input.parse::<QueryMethod>()? )
+            me.methods.push(input.parse::<QueryMethod>()?)
         }
 
         me.check();
@@ -75,7 +74,7 @@ impl QuerySqlBlock {
         for method in &self.methods {
             method.apply_method_sql(&mut sql)
         }
-    
+
         sql
     }
 }

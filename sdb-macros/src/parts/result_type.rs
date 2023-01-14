@@ -4,13 +4,6 @@ use syn::{parse::*, punctuated::Punctuated, token::*, Type, *};
 
 use proc_macro_error::{__export::*, abort};
 
-#[derive(Debug)]
-pub enum QueryResultScale {
-    Option(TypePath),
-    Single(TypePath),
-    Vec(TypePath),
-}
-
 //
 //
 //
@@ -18,25 +11,24 @@ pub enum QueryResultScale {
 const ERROR_HELP: &str = r#"Only types which implement serde::Deserialise are valid here. "#;
 
 #[derive(Debug)]
-pub struct QueryResultType {
-    // pub _colon: Colon,
-    pub scale: QueryResultScale,
+pub enum QueryResultType {
+    Option(TypePath),
+    Single(TypePath),
+    Vec(TypePath),
 }
 
 impl QueryResultType {
     pub fn call_next(&self) -> TokenStream {
-        use QueryResultScale::*;
-        match &self.scale {
-            Option( ty ) => quote!(next_opt::< #ty >()),
-            Single( ty ) => quote!(next_one::< #ty >()),
-            Vec( ty ) => quote!(next_vec::< #ty >()),
+        match &self {
+            Self::Option(ty) => quote!(next_opt::< #ty >()),
+            Self::Single(ty) => quote!(next_one::< #ty >()),
+            Self::Vec(ty) => quote!(next_vec::< #ty >()),
         }
     }
 }
 
 impl Parse for QueryResultType {
     fn parse(input: ParseStream) -> Result<Self> {
-        use QueryResultScale as Qrs;
         // let colon: Colon = input.parse()?;
 
         // Brackets are a shortcut for Option< T >
@@ -47,17 +39,11 @@ impl Parse for QueryResultType {
             && let GenericArgument::Type( first_arg ) = brack.args.first().unwrap()
         {
             if let Type::Infer( inf ) = first_arg {
-                return Ok(Self {
-                    // _colon: colon,
-                    scale: Qrs::Option( value_ty_path( inf ) )
-                })
+                return Ok(Self::Option( value_ty_path( inf ) ))
             }
 
             if let Type::Path( ty_path ) = first_arg {
-                return Ok(Self {
-                    // _colon: colon,
-                    scale: Qrs::Option( ty_path.clone() )
-                })
+                return Ok(Self::Option( ty_path.clone() ))
             }
         }
 
@@ -76,22 +62,13 @@ impl Parse for QueryResultType {
 
         match in_type {
             Type::Infer( inf ) => {
-                Ok(Self {
-                    // _colon: colon,
-                    scale: Qrs::Single( value_ty_path(&inf) )
-                })
+                Ok(Self::Single( value_ty_path(&inf) ))
             },
             Type::Slice( TypeSlice { elem: box Type::Infer( inf ), .. } ) => {
-                Ok( Self {
-                    // _colon: colon,
-                    scale: Qrs::Vec( value_ty_path(&inf) ),
-                })
+                Ok( Self::Vec( value_ty_path(&inf) ))
             },
             Type::Slice( TypeSlice { elem: box Type::Path( path ), .. } ) => {
-                Ok( Self {
-                    // _colon: colon,
-                    scale: Qrs::Vec( path ),
-                })
+                Ok( Self::Vec( path ))
             },
 
             Type::Path( ref path ) if
@@ -103,24 +80,13 @@ impl Parse for QueryResultType {
             {
                 let out_str = outer.ident.to_string();
                 match out_str.as_str() {
-                    "Vec" => Ok( Self { 
-                        // _colon: colon,
-                        scale: Qrs::Vec( ty ),
-                    }),
-                    "Option" => Ok( Self {
-                        // _colon: colon,
-                        scale: Qrs::Option( ty ),
-                    }),
+                    "Vec" => Ok( Self::Vec( ty )),
+                    "Option" => Ok( Self::Option( ty )),
                     _ => panic!("OTUSFDJD")
                 }
             },
 
-            Type::Path( path ) => {
-                Ok(Self {
-                    // _colon: colon,
-                    scale: Qrs::Single( path )
-                })
-            }
+            Type::Path( path ) => Ok(Self::Single( path )),
 
             _ => {
                 abort!(
@@ -159,11 +125,10 @@ fn value_ty_path(inf: &TypeInfer) -> TypePath {
 
 impl ToTokens for QueryResultType {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        use QueryResultScale::*;
-        tokens.extend(match &self.scale {
-            Option(ty) => quote!( Option< #ty > ),
-            Single(ty) => quote!( #ty ),
-            Vec(ty) => quote!( Vec< #ty > ),
+        tokens.extend(match &self {
+            Self::Option(ty) => quote!( Option< #ty > ),
+            Self::Single(ty) => quote!( #ty ),
+            Self::Vec(ty) => quote!( Vec< #ty > ),
         });
     }
 }

@@ -30,19 +30,15 @@ impl SurrealClient {
     ///
     /// This method is to make tests and demos more convienient, and shouldn't be used in outside of those cases.
     #[cfg(any(test, doctest, feature = "extras"))]
-    pub async fn demo() -> Self {
+    pub fn demo() -> Self {
         let Ok( me ) = Self::open(DEMO_URL).build() else {
             panic!("\n\nYou forgot to start the demo server\n ./launch-demo-db.sh")
         };
 
-        me.transaction()
-            .push("INFO FOR DB")
-            .run()
-            .await
-            .unwrap();
         me
     }
 
+    /// What server am I connecting to?
     pub fn server(&self) -> &ServerInfo {
         &self.inner.server
     }
@@ -57,10 +53,12 @@ impl SurrealClient {
         Ok(Self { inner })
     }
 
+    /// Create a new [`TransactionBuilder`], for performing queries
     pub fn transaction(&self) -> TransactionBuilder {
         TransactionBuilder::new(self)
     }
 
+    /// Execute a Transaction and return the server's reply
     pub async fn query(&mut self, trans: TransactionBuilder) -> SdbResult<TransactionReply> {
         let (queries, sqls) = trans.queries();
         let full_sql = sqls.join(";\n\t");

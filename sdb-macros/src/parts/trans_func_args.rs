@@ -9,8 +9,7 @@ pub struct TransFuncArgs {
     pub fields: Punctuated<Expr, Token![,]>,
 }
 
-impl TransFuncArgs {
-}
+impl TransFuncArgs {}
 
 impl Parse for TransFuncArgs {
     fn parse(input: ParseStream) -> Result<Self> {

@@ -1,17 +1,18 @@
 use std::fmt::Debug;
 
-use proc_macro_error::emit_error;
 use proc_macro2::Delimiter;
+use proc_macro_error::emit_error;
 use quote::ToTokens;
-use syn::{parse::*, token::CustomToken, *, punctuated::Punctuated};
+use syn::{parse::*, punctuated::Punctuated, token::CustomToken, *};
 
 const UNKNOWN_METHOD_HELP: &str = r#"Expected one of the following methods, or no method:
- - pluck
- - limit
- - shuffle
  - count
+ - ids
+ - limit
  - one
  - page
+ - pluck
+ - shuffle
 "#;
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ impl Parse for QueryMethod {
             _dot: input.parse()?,
             ident: input.parse()?,
             _paren: parenthesized!(context in input),
-            args: context.parse_terminated( Lit::parse )?,
+            args: context.parse_terminated(Lit::parse)?,
         })
     }
 }
@@ -81,6 +82,7 @@ impl QueryMethod {
         let method_name = self.name();
         match method_name.as_str() {
             "shuffle" => quote_shuffle(self, sql),
+            "ids" => quote_ids(self, sql),
             "pluck" => quote_pluck(self, sql),
             "limit" => quote_limit(self, sql),
             "count" => quote_count(self, sql),
@@ -88,11 +90,24 @@ impl QueryMethod {
             "one" => quote_one(self, sql),
             _ => {
                 emit_error!(
-                    self.ident, "Unrecognized shortcut method `{}`", method_name;
+                    self.ident, "Unrecognized Query Sugar™ `{}`", method_name;
                     help = UNKNOWN_METHOD_HELP;
-                    note = "See the crate documentation comments for a list of valid methods"
+                    note = "See the crate documentation comments for a list of Query Sugar™"
                 )
             }
+        }
+    }
+}
+
+fn quote_ids(method: &QueryMethod, sql: &mut String) {
+    *sql = match method.arg_count() {
+        0 => format!("SELECT * FROM (SELECT type::string( `id` ) AS id FROM ({sql}))"),
+
+        _ => {
+            return emit_error!(
+                method.ident, "Invalid Query Sugar™ Arguments";
+                help = r#"ids() expects no arguments"#,
+            )
         }
     }
 }
@@ -107,7 +122,7 @@ fn quote_shuffle(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.ident, "Unrecognised Method arguments";
+                method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"shuffle( [ <limit> ] )
 - <limit>: usize - the maximum number of records to get"#,
             )
@@ -128,7 +143,7 @@ fn quote_pluck(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.ident, "Unrecognised Method arguments";
+                method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"pluck( <field> [ , <limit> ] ) 
 - <field>: str - the name of the field to extract
 - <limit>: usize - optional, the maximum number of records to get"#,
@@ -150,7 +165,7 @@ fn quote_limit(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.ident, "Unrecognised Method arguments";
+                method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"limit( <limit> [ , <start> ] )
 - <limit>: usize - the maximum number of records to get
 - <start>: usize - optional, "#,
@@ -167,7 +182,7 @@ fn quote_count(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.ident, "Unrecognised Method arguments";
+                method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"count( ) expects 0 args"#,
             )
         }
@@ -183,7 +198,7 @@ fn quote_page(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.ident, "Unrecognised Method arguments";
+                method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"page( <size> , <page> )
 - <size>: usize - the number of records on each page
 - <page>: usize - which page of records to get, 1 indexed"#,
@@ -200,7 +215,7 @@ fn quote_one(method: &QueryMethod, sql: &mut String) {
 
         _ => {
             return emit_error!(
-                method.ident, "Unrecognised Method arguments";
+                method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"one( ) expects 0 args"#,
             )
         }

@@ -4,14 +4,12 @@ use syn::{parse::*, token::*, *};
 
 use crate::parts::*;
 
-pub(crate) enum UniversalLine {
+pub enum UniversalLine {
     Import {
-        _paren: Brace, 
         source: ExprBlock,
         _arrow: Token![=>],
         _dollar: Token![$],
         var_name: Ident,
-
     },
     ToVar {
         sql: QuerySqlBlock,
@@ -33,8 +31,8 @@ pub(crate) enum UniversalLine {
     ParseTail {
         sql: QuerySqlBlock,
         _as: Token![as],
-        path: QueryResultType
-    }
+        path: QueryResultType,
+    },
 }
 
 // impl UniversalLine {
@@ -53,47 +51,44 @@ pub(crate) enum UniversalLine {
 impl Parse for UniversalLine {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Brace) {
-            let context;   
             return Ok(Self::Import {
-                _paren: braced!(context in input),
-                source: context.parse()?,
+                source: input.parse()?,
                 _arrow: input.parse()?,
                 _dollar: input.parse()?,
-                var_name: input.parse()?
+                var_name: input.parse()?,
             });
         }
 
         let sql: QuerySqlBlock = input.parse()?;
         if input.peek(Token![;]) {
-            return Ok(Self::Ignored { sql })
+            return Ok(Self::Ignored { sql });
         }
 
-        if let Ok( _as ) = input.parse() {
+        if let Ok(_as) = input.parse() {
             return Ok(Self::ParseTail {
-                sql, 
+                sql,
                 _as,
-                path: input.parse()? 
-            })
+                path: input.parse()?,
+            });
         }
 
         let _arrow = input.parse()?;
 
-        if let Some( dollar ) = input.parse::<Option<Token![$]>>()? {
+        if let Some(dollar) = input.parse::<Option<Token![$]>>()? {
             Ok(Self::ToVar {
                 sql,
                 _arrow,
                 _dollar: dollar,
-                var_name: input.parse()?
+                var_name: input.parse()?,
             })
-        }
-        else {
+        } else {
             Ok(Self::Parse {
                 sql,
                 _arrow,
                 is_mut: input.parse()?,
                 store: input.parse()?,
                 _colon: input.parse()?,
-                path: input.parse()?
+                path: input.parse()?,
             })
         }
     }
@@ -107,7 +102,6 @@ impl Parse for UniversalLine {
 //         })
 //     }
 // }
-
 
 // pub struct UniType {
 //     pub colon: Token![:],
