@@ -19,7 +19,7 @@ async-trait = "0.1"
 serde = { version = "1.0", features = [ "derive" ] }
 serde_json = "1.0"
 base64 = { version = "0.20" }
-
+rand = "0.8.5"
 log = { version = "0.4", optional = true }
 
 sdb-macros = { path = "../sdb-macros", optional = true }
@@ -56,4 +56,6 @@ tikv = [
 # include some helpers for doctests. this are not useful outside of this librarie's self-testing
 extras = [
     "dep:sdb-macros"
+]
+no-demo = [
 ]

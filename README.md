@@ -42,138 +42,120 @@ cargo run --example demo
 ```
 
 # **Crash Course by Example**
-Taken from `sdb/examples/mega-demo.rs`
+Taken from `sdb/examples/crash-course.rs`
 ```rust
-// Open a new client
-let client = SurrealClient::open("ws://127.0.0.1:8000/example/demo")
-    .auth_basic("test_user", "test_pass")
-    .build()?;
+// Create a SurrealClient
+// - Server at 127.0.0.1:8000 connect using websockets 
+// - login as demo_user:demo_pass
+// - using namespace 'example' and database 'demo'
+let client = SurrealClient::open("ws://demo_user:demo_pass@127.0.0.1:8000/example/demo")
+    .build()
+    .unwrap();
 
 
-// Execute a basic query
+// Run a query
+let mut results = client.transaction()
+    .push("SELECT * FROM 12")
+    .run()
+    .await?;
+let twelve = results.next_one::<usize>()?;
+assert_eq!(twelve, 12);
+
+
+// Use the query! macro to reduce boilerplate
 sdb::query!( client => {
-    "SELECT * FROM 12" => twelve: isize
+    "SELECT * FROM 12" => twelve_again: usize;
 });
-if twelve == 12 {
-    println!("1) Twelve does in fact equal 12");
-}
-
-// Alternative syntax for single values
-let twelve_two = sdb::query!( client => { "SELECT * FROM 12" as isize });
-if twelve_two == 12 {
-    println!("   Twelve continues to equal 12");
-}
+assert_eq!(twelve, twelve_again);
 
 
-// Now multiple queries. Results are parsed with `serde::Deserialize`
+// Alternative syntax for single queries
+let twelve_yet_again = sdb::query!( client => { "SELECT * FROM 12" as usize });
+assert_eq!(twelve_again, twelve_yet_again);
+assert_eq!(twelve_yet_again, 12); // just to be sure
+
+
+// Now run multiple queries
 sdb::query!( client => {
-    // Run this query, ignore the results.
-    "UPDATE books SET word_count = 0 WHERE word_count < 0";
+    // Update some records, and return zero results
+    "UPDATE books SET word_count = 0 WHERE word_count = unset";
 
-    // Zero or more results
-    "SELECT * FROM books ORDER rand()" => all_books: Vec<BookSchema>;
-
-    // Just one. Getting zero results throws an error
-    "SELECT * FROM books ORDER rand()" => a_book: BookSchema;
-
-    // Returns the first results, or None if there are 0 results.
-    "SELECT * FROM books ORDER rand()" => another_book: Option<BookSchema>;
+    // Parse results as `Vec<Book>` into rust variable `long_books`
+    "SELECT * FROM books WHERE word_count > 250000 FETCH author"
+        => long_books: Vec<Book>;
 });
-
-println!("2) There are {} books in total", all_books.len());
-println!("   There is, allegedly, a book called {}", a_book.title);
-if let Some( ab ) = another_book {
-    println!("   And maybe a book called {}", ab.title);
+println!("Here are some long books:");
+for book in long_books {
+    println!("  - {} by {} has {} words",
+        book.title,
+        book.author().name,
+        book.word_count
+    )
 }
 
 
-// Now store results in a mutable field
-sdb::query!( client => {
-    "SELECT * FROM books ORDER rand() LIMIT 5" => mut five_books: Vec<BookSchema> 
+// Inject variables into the query
+let search = "George";
+sdb::query!( client =[ search, 5 ]=> {
+    // Use variable
+    "SELECT * FROM books WHERE author.name ~ $0" => books_by: Vec<Book>;
+
+    // Use variable by name
+    "SELECT * FROM books WHERE author.name !~ $search" => books_not_by: Vec<Book>;
+
+    // Store query in a transaction variable then use it later
+    "SELECT * FROM books WHERE author.name ~ $search" => $books_by;
+    "SELECT * FROM $books_by LIMIT $1" => _five_books_by: Vec<Book>;
 });
+println!("{search} published {} books", books_by.len());
+println!("People not named {search} published {} books", books_not_by.len());
 
-println!("3) Five books:");
-while let Some( book ) = five_books.pop() {
-    println!("     - {}", book.title)
-}
-
-
-// Fetch nested data
-sdb::query!( client => {
-    "SELECT * FROM books LIMIT 3 FETCH author" => some_books: Vec<BookSchema>;
-});
-println!("4) Three books and their authors:");
-for book in some_books {
-    println!("     - '{}' by {}", book.title, book.author().name)
-}
-
-
-// Inject variables
-let search_term = "George";
-sdb::query!( client =[ search_term, 6 ]=> {
-    // $0 = `search_term`,  $1 = 6, and so on
-    "SELECT * FROM books WHERE author.name ~ $0 LIMIT $1"
-        => by_george: Vec<BookSchema>;
-
-    // passed vars in =[ .. ]=> can also be refered to by name
-    "SELECT * FROM books WHERE author.name ~ $search_term LIMIT $1"
-        => not_by_george: Vec<BookSchema>;
-});
-println!("5) Books by '{}'", search_term);
-for book in by_george {
-    println!("     - {}", book.title)
-}    
-println!("   Books they didn't write:");
-for book in not_by_george {
-    println!("     - {}", book.title)
-}
 
 // Use Query Sugar™
-// See README or macro docs for a list of sugars
+let search = "George";
+sdb::query!( client =[ search ]=> {
+    // Add up the values of `word_count` in all books
+    "SELECT * FROM books WHERE author.name ~ $search"
+        .sum("word_count") => total_word_count: usize;
+
+    // Nothing new here
+    "SELECT * FROM books WHERE author.name ~ $search" => $books_by;
+
+    // Query Sugar™s can operate on query vars directly
+    "$books_by" .count() => author_book_count: usize;
+});
+println!("{search} published {author_book_count} books with a total word count of {total_word_count}");
+
+
+// use FETCH clause to get nested data
 sdb::query!( client => {
-    "SELECT * FROM books" .count() => book_count: i32;
-
-    // This does the same as the above,
-    "SELECT * FROM count(( SELECT * FROM books ))";
+    "SELECT * FROM books FETCH author"
+        .shuffle() .limit( 5 ) => books_by: Vec<Book>;
 });
-println!("6) There are {book_count} books in the archive");
+println!("Here are five books and their authors:" );
+for book in books_by {
+    println!("  - {} by {}", book.title, book.author().name )
+}
 
+//
+// Schema definition
+//
 
-// Break up queries into multiple lines.
-sdb::query!( client => {
-    // Store first query result in a transaction variable
-    "SELECT * FROM books ORDER BY word_count DESC" => $longest;
+#[derive(Serialize, Deserialize, SurrealRecord)]
+#[table("books")]
+pub struct Book {
+    pub id: RecordId,
+    pub title: String,
+    pub word_count: usize,
+    // either a RecordId, or an Author. This makes FETCHs way easier
+    pub author: RecordLink<Author>,
+}
 
-    // Run a query on the results
-    "SELECT * FROM $longest LIMIT 3" => mut longest_books: Vec<BookSchema>
-});
-let longest = longest_books.remove(0);
-println!("7) The longest book is called '{}'", longest.title);
-
-
-// Run multiple queries together.
-let long_word_count = 250000;
-sdb::query!( client =[ long_word_count ]=> {
-    // Store results of a query in a transaction variable.
-    // Queries that follow can act on these results
-    "SELECT * FROM books WHERE word_count > $0 ORDER word_count DESC" => $longest;
-
-    // Get just the title of the first result of `$longest`, aka, the book
-    // with the most words, and store it in
-    "$longest" .pluck("title", 1) => longest_title: String;
-
-    // Get the number of books in total with more than 250k words
-    "SELECT * FROM $longest" .count() => long_count: i32;
-
-    // Retrieve 10 books, with nested data
-    "SELECT * FROM books FETCH author" .limit(10) => stories: Vec<BookSchema>;
-});
-
-println!("8) Longest books: '{longest_title}'");
-println!("   There are {long_count} books with over {long_word_count} words");
-println!("   Several books:");
-for s in stories {
-    println!("    - '{}' by {}", s.title, s.author().name)
+#[derive(Serialize, Deserialize, SurrealRecord)]
+#[table("authors")]
+pub struct Author {
+    pub id: RecordId,
+    pub name: String,
 }
 ```
 
@@ -253,7 +235,7 @@ All transaction variables must have a dollar sign (`$`) prefix
 # ~ *Query Sugar™* ~
 The `query!` macro has various methods which reformat and wrap queries to make it more clear what the goal of a given query is.
 
-### `count( [field] )`
+### **`count( [field] )`**
 Returns a the number of results, *OR* the number of results which contain a `field` who's value is truthy
 ```rust
 sdb::query!( client => {
@@ -266,7 +248,7 @@ sdb::query!( client => {
 ```
 
 
-### `ids()`
+### **`ids()`**
 Retrieves a list of the id's of the result records. 
 ```rust
 sdb::query!( client => {
@@ -275,19 +257,19 @@ sdb::query!( client => {
 ```
 
 
-### `limit( max [ , start ] )`
+### **`limit( max [ , start ] )`**
 Adds a `LIMIT max` clause to a **SELECT** query, or `LIMIT max START start`.
 
 
-### `one()`
+### **`one()`**
 Adds a `LIMIT 1` clause to a **SELECT** query.
 
 
-### `page( size, page )`
+### **`page( size, page )`**
 Divides the results into blocks of `size` and returns the `page`th block. Useful for paging.
 
 
-### `pluck( field [ , max ] )`
+### **`pluck( field [ , max ] )`**
 Gets an array containing the value of a given field from each result, and optionally appends a `LIMIT max` clause.
 
 **Note:** *There are plans to also parse multiple fields into tuples, but this is not implemented*
@@ -299,8 +281,30 @@ sdb::query!( client => {
 });
 ```
 
+### **`product( field )`**
+Gets gets `field` from every record and calculates the product
 
-## `shuffle( [ max ] )`
+```rust
+// Get ... a big number? idk when you'd actually use this
+sdb::query!( client =[ "George" ]> {
+    "SELECT * FROM books WHERE author.name ~ $0"
+        .product("word_count") => big_number: usize
+});
+```
+
+### **`shuffle( [ max ] )`**
 Gets a randomized list of results, and optionally set a maximum number to return.
 
-Same as adding a `ORDER BY rand()` clause
+Same as adding a `ORDER BY rand() LIMIT max` clause
+
+
+### **`sum( field )`**
+Gets gets `field` from every record and calculates the sum
+
+```rust
+// Get the number of words written by authors named "George"
+sdb::query!( client =[ "George" ]> {
+    "SELECT * FROM books WHERE author.name ~ $0"
+        .sum("word_count") => words_written: usize
+});
+```

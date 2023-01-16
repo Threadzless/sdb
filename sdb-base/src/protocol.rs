@@ -44,6 +44,6 @@ impl Protocol {
 
 impl Default for Protocol {
     fn default() -> Self {
-        Protocol::Socket { secure: true }
+        Protocol::Socket { secure: false }
     }
 }

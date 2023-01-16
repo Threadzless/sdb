@@ -1,12 +1,12 @@
 use serde::Serialize;
 use serde_json::{Map, Value};
 
-use crate::{credentials::Credentials, server_info::ServerInfo};
+use crate::prelude::*;
 
 #[derive(Serialize)]
 pub struct SurrealRequest {
-    pub id: String,
-    pub method: String,
+    pub id: u32,
+    pub method: RequestMethod,
     pub params: Vec<Value>,
 }
 
@@ -14,22 +14,27 @@ unsafe impl Send for SurrealRequest {}
 unsafe impl Sync for SurrealRequest {}
 
 impl SurrealRequest {
-    pub fn new(id: String, method: impl ToString, params: Vec<impl Into<Value>>) -> Self {
+    fn new(method: RequestMethod, params: Vec<impl Into<Value>>) -> Self {
         Self {
-            id,
-            method: method.to_string(),
+            id: rand::random(),
+            method,
             params: params.into_iter().map(|s| s.into()).collect::<Vec<Value>>(),
         }
     }
 
     pub fn query(sql: impl ToString) -> Self {
-        let id = String::from("12345");
-        Self::new(id, "query", vec![sql.to_string()])
+        // println!("\n{}\n", sql.to_string());
+        Self::new(
+            RequestMethod::Query,
+            vec![sql.to_string()]
+        )
     }
 
     pub fn use_ns_db(ns: &str, db: &str) -> Self {
-        let id = String::from("12345");
-        Self::new(id, "use", vec![ns.to_string(), db.to_string()])
+        Self::new(
+            RequestMethod::Use,
+            vec![ns.to_string(), db.to_string()]
+        )
     }
 
     pub fn stringify(&self) -> String {
@@ -37,10 +42,7 @@ impl SurrealRequest {
     }
 
     pub fn new_auth(info: &ServerInfo) -> Self {
-        let id = String::from("12345");
         let mut vals = Map::new();
-        // vals.insert("ns".to_string(), Value::String( info.namespace.clone() ));
-        // vals.insert("db".to_string(), Value::String( info.database.clone() ));
 
         match &info.auth {
             Some(Credentials::Basic { user, pass }) => {
@@ -48,12 +50,12 @@ impl SurrealRequest {
                 vals.insert("pass".to_string(), Value::String(pass.clone()));
             }
             None => {}
-            _ => unimplemented!(
-                "That auth method is not currently compatible with socket connections"
-            ),
+            _ => unimplemented!(),
         }
 
-        Self::new(id, "signin", vec![Value::Object(vals)])
-        // todo!()
+        Self::new(
+            RequestMethod::Signin,
+            vec![Value::Object(vals)]
+        )
     }
 }

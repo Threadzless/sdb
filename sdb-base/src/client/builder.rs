@@ -3,6 +3,8 @@ use crate::{
     server_info::ServerInfo,
 };
 
+use super::SurrealInterfaceBuilder;
+
 /// The info needed to build a [`SurrealClient`]
 pub struct ClientBuilder {
     connect_str: String,
@@ -62,12 +64,14 @@ impl ClientBuilder {
         match proto {
             #[cfg(feature = "ws")]
             Protocol::Socket { .. } => {
-                SurrealClient::build::<interfaces::WSSurrealInterface>(server)
+                let inter = interfaces::WSSurrealInterface::new(&server)?;
+                SurrealClient::build( server, inter )
             }
 
             #[cfg(feature = "http")]
             Protocol::Http { .. } => {
-                SurrealClient::build::<interfaces::HttpSurrealInterface>(server)
+                let inter = interfaces::HttpSurrealInterface::new(&server)?;
+                SurrealClient::build( server, inter )
             }
 
             #[cfg(feature = "tikv")]

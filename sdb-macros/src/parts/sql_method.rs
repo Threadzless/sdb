@@ -5,14 +5,10 @@ use proc_macro_error::emit_error;
 use quote::ToTokens;
 use syn::{parse::*, punctuated::Punctuated, token::CustomToken, *};
 
-const UNKNOWN_METHOD_HELP: &str = r#"Expected one of the following methods, or no method:
- - count
- - ids
- - limit
- - one
- - page
- - pluck
- - shuffle
+const UNKNOWN_METHOD_HELP: &str = r#"Valid Query Sugar™s:
+  - count     - ids       - limit
+  - one       - page      - pluck
+  - product   - shuffle   - sum
 "#;
 
 #[derive(Debug)]
@@ -20,7 +16,7 @@ pub struct QueryMethod {
     _dot: Token![.],
     ident: Ident,
     _paren: token::Paren,
-    args: Punctuated<Lit, Token![,]>,
+    args: Punctuated<QuerySugarArg, Token![,]>,
 }
 
 impl Parse for QueryMethod {
@@ -30,7 +26,7 @@ impl Parse for QueryMethod {
             _dot: input.parse()?,
             ident: input.parse()?,
             _paren: parenthesized!(context in input),
-            args: context.parse_terminated(Lit::parse)?,
+            args: context.parse_terminated(QuerySugarArg::parse)?,
         })
     }
 }
@@ -63,31 +59,41 @@ impl QueryMethod {
 
     pub fn arg_usize(&self, index: usize) -> Option<usize> {
         let Some( arg ) = self.args.iter().nth( index ) else { return None };
-        // let Expr::Lit( ExprLit { lit: Lit::Int( i ), .. } ) = arg else { return None };
-        let Lit::Int( i ) = arg else { return None };
-        match i.base10_parse::<usize>() {
-            Ok(i) => Some(i),
-            Err(_) => None,
+        match arg {
+            &QuerySugarArg::Literal( Lit::Int( ref i ) ) => i.base10_parse::<usize>().ok(),
+            _ => None
         }
     }
 
     pub fn arg_str(&self, index: usize) -> Option<String> {
         let Some( arg ) = self.args.iter().nth( index ) else { return None };
-        // let Expr::Lit( ExprLit { lit: Lit::Str( s ), .. } ) = arg else { return None };
-        let Lit::Str( s ) = arg else { return None };
-        Some(s.value())
+        match arg {
+            &QuerySugarArg::Literal( Lit::Str( ref s ) ) => Some( s.value() ),
+            _ => None
+        }
+    }
+
+    #[allow(unused)]
+    pub fn arg_ident(&self, index: usize) -> Option<&Ident> {
+        let Some( arg ) = self.args.iter().nth( index ) else { return None };
+        match arg {
+            &QuerySugarArg::Ident( ref ident ) => Some( ident ),
+            _ => None,
+        }
     }
 
     pub fn apply_method_sql(&self, sql: &mut String) {
         let method_name = self.name();
         match method_name.as_str() {
-            "shuffle" => quote_shuffle(self, sql),
-            "ids" => quote_ids(self, sql),
-            "pluck" => quote_pluck(self, sql),
-            "limit" => quote_limit(self, sql),
             "count" => quote_count(self, sql),
-            "page" => quote_page(self, sql),
+            "ids" => quote_ids(self, sql),
+            "limit" => quote_limit(self, sql),
             "one" => quote_one(self, sql),
+            "page" => quote_page(self, sql),
+            "pluck" => quote_pluck(self, sql),
+            "product" => quote_product(self, sql),
+            "shuffle" => quote_shuffle(self, sql),
+            "sum" => quote_sum(self, sql),
             _ => {
                 emit_error!(
                     self.ident, "Unrecognized Query Sugar™ `{}`", method_name;
@@ -218,6 +224,63 @@ fn quote_one(method: &QueryMethod, sql: &mut String) {
                 method.ident, "Invalid Query Sugar™ Arguments";
                 help = r#"one( ) expects 0 args"#,
             )
+        }
+    }
+}
+
+fn quote_product(method: &QueryMethod, sql: &mut String) {
+    *sql = match method.arg_count() {
+        1 if let Some( field ) = method.arg_str(0) => {
+            let inner = format!("SELECT * FROM (SELECT `{field}` FROM ({sql}))");
+            format!("SELECT * FROM math::product(({inner}))")
+        },
+        _ => {
+            return emit_error!(
+                method.ident, "Invalid Query Sugar™ Arguments";
+                help = r#"product( <field> ) expects 1 args
+- <field>: string - the field to get the product of"#,
+            )
+        }
+    }
+}
+
+fn quote_sum(method: &QueryMethod, sql: &mut String) {
+    *sql = match method.arg_count() {
+        1 if let Some( field ) = method.arg_str(0) => {
+            let inner = format!("SELECT * FROM (SELECT `{field}` FROM ({sql}))");
+            format!("SELECT * FROM math::sum(({inner}))")
+        },
+        _ => {
+            return emit_error!(
+                method.ident, "Invalid Query Sugar™ Arguments";
+                help = r#"sum( <field> ) expects 1 args
+- <field>: string - the field to get the sum of"#,
+            )
+        }
+    }
+}
+
+
+#[derive(Debug)]
+pub enum QuerySugarArg {
+    Literal(Lit),
+    TransVar(Token![$], Ident),
+    Ident( Ident ),
+}
+
+impl Parse for QuerySugarArg {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek(Token![$]) {
+            Ok(Self::TransVar(
+                input.parse()?,
+                input.parse()?,
+            ))
+        }
+        else if input.peek(Lit) {
+            Ok(Self::Literal( input.parse()? ))
+        }
+        else {
+            Ok(Self::Ident( input.parse()? ))
         }
     }
 }

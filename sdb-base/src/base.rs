@@ -14,7 +14,7 @@ mod server_info;
 pub mod prelude {
 
     pub use crate::{
-        client::interface::{SurrealRequest, SurrealResponse, SurrealResponseError},
+        client::interface::{SurrealRequest, SurrealResponse, SurrealResponseError, RequestMethod},
         client::SurrealClient,
         credentials::Credentials,
         error::{SdbError, SdbResult},

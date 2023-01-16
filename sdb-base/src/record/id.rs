@@ -1,7 +1,9 @@
 use serde::{de::*, *};
-use std::fmt::{Formatter, Result as FmtResult};
+use std::fmt::{Formatter, Result as FmtResult, Display};
 
 use crate::error::{SdbError, SdbResult};
+
+const PLACEHOLDER_KEY: &str = "\u{0}";
 
 /// The `id` field of all SurrealDB records, and a
 ///
@@ -41,6 +43,25 @@ impl RecordId {
     pub fn table(&self) -> String {
         self.table.clone()
     }
+
+    pub(crate) fn is_placeholder(&self) -> bool {
+        self.key.eq(PLACEHOLDER_KEY)
+    }
+
+    /// Used for creating records
+    /// 
+    /// ```rust
+    /// # use sdb_base as sdb;
+    /// 
+    /// 
+    /// #[derive(S)]
+    /// ```
+    pub fn placeholder(table_name: &str) -> Self {
+        Self {
+            table: table_name.to_string(),
+            key: PLACEHOLDER_KEY.to_string()
+        }
+    }
 }
 
 // impl ToSurrealQL for RecordId {
@@ -49,9 +70,9 @@ impl RecordId {
 //     }
 // }
 
-impl ToString for RecordId {
-    fn to_string(&self) -> String {
-        format!("{}:`{}`", self.table, self.key)
+impl Display for RecordId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}:`{}`", self.table, self.key)
     }
 }
 

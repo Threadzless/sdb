@@ -42,7 +42,7 @@ unsafe impl Sync for HttpSurrealInterface {}
 
 #[async_trait::async_trait(?Send)]
 impl SurrealInterface for HttpSurrealInterface {
-    async fn send(
+    async fn execute(
         &mut self,
         info: &ServerInfo,
         request: SurrealRequest,

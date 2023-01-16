@@ -28,7 +28,7 @@ impl TransactionReply {
         }
     }
 
-    pub fn next_result(&mut self) -> &mut QueryReply {
+    pub fn next_result<'a>(&'a mut self) -> &'a mut QueryReply {
         while let Some( line ) = self.queries.get( self.index ) && line.skip {
             self.index += 1;
         }

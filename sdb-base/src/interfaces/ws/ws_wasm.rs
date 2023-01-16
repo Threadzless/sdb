@@ -54,7 +54,7 @@ unsafe impl Sync for WSSurrealInterface {}
 
 #[async_trait::async_trait(?Send)]
 impl SurrealInterface for WSSurrealInterface {
-    async fn send(
+    async fn execute(
         &mut self,
         info: &ServerInfo,
         request: SurrealRequest,
@@ -71,7 +71,7 @@ impl SurrealInterface for WSSurrealInterface {
         let Message::Text( txt ) = reply else { panic!() };
 
         match from_str::<SurrealResponse>(&txt) {
-            Ok(result) if !result.check_id(&request.id) => {
+            Ok(result) if !result.is_for(&request) => {
                 unimplemented!("Multi-query routing")
             }
             Ok(r) => Ok(r),
@@ -82,4 +82,6 @@ impl SurrealInterface for WSSurrealInterface {
             }),
         }
     }
+
+    
 }

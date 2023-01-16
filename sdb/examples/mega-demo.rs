@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 async fn run() -> Result<(), SdbError> {
     // Open a new client
     let client = SurrealClient::open("ws://127.0.0.1:8000/example/demo")
-        .auth_basic("test_user", "test_pass")
+        .auth_basic("demo_user", "demo_pass")
         .build()?;
 
 

@@ -6,7 +6,7 @@ use simplelog::*;
 async fn run() -> Result<(), SdbError> {
     // Create client
     let client = SurrealClient::open("127.0.0.1:8000/example/demo")
-        .auth_basic("test_user", "test_pass")
+        .auth_basic("demo_user", "demo_pass")
         .protocol(Protocol::Socket { secure: false })
         .build()?;
 

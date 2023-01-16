@@ -16,9 +16,32 @@ impl QueryArgs {
         for (idx, expr) in self.fields.iter().enumerate() {
             let span = Span::call_site();
             let var_name = LitStr::new(&idx.to_string(), span);
+
+
             assigns.extend(quote! {
                 .push_var( #var_name, #expr )
-            })
+            });
+
+            match expr {
+                Expr::Cast( ExprCast { ty, .. } ) => {
+                    let name = (*ty).to_token_stream().to_string();
+                    let cast_name = LitStr::new(&name, Span::call_site());
+                    assigns.extend(quote! {
+                        ._name_var( #cast_name, #var_name )
+                    });
+                },
+
+                Expr::Path( ExprPath { path, .. } )
+                if path.segments.len() == 1
+                && let Some( PathSegment { ident, .. } ) = path.segments.last() => {
+                    let cast_name = LitStr::new(&ident.to_string(), ident.span());
+                    assigns.extend(quote! {
+                        ._name_var( #cast_name, #var_name )
+                    });
+                },
+
+                _ => {}
+            };
         }
         assigns
     }

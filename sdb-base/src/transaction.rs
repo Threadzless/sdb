@@ -95,6 +95,13 @@ impl TransactionBuilder {
             }
         }
     }
+    pub fn _name_var(mut self, new_name: &str, old_name: &str) -> Self {
+        self.queries.push(TransQuery {
+            sql: format!("LET ${new_name} = ${old_name}"),
+            skip: true,
+        });
+        self
+    }
 
     /// Insert a new query into the transaction, which will *NOT* produce a result
     /// when the transaction is run.

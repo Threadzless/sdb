@@ -67,7 +67,7 @@ unsafe impl Sync for WSSurrealInterface {}
 
 #[async_trait::async_trait(?Send)]
 impl SurrealInterface for WSSurrealInterface {
-    async fn send(
+    async fn execute(
         &mut self,
         server: &ServerInfo,
         request: SurrealRequest,
@@ -84,9 +84,15 @@ impl SurrealInterface for WSSurrealInterface {
             panic!("Recieved a Binary payload - WSSurrealInterface::send")
         };
 
-        let response = serde_json::from_str::<SurrealResponse>(&payload).unwrap();
+        let response = match serde_json::from_str::<SurrealResponse>(&payload) {
+            Ok(r) => r,
+            Err(err) => {
+                println!("{payload}\n");
+                Err(err).unwrap()
+            }
+        };
 
-        if !response.check_id(&request.id) {
+        if !response.is_for(&request) {
             println!(
                 "\n\n{payload}\n\n{:?} =/= {:?}\n\n",
                 request.id,

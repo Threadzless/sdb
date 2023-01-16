@@ -2,6 +2,8 @@ use serde::Deserialize;
 
 use crate::reply::QueryReply;
 
+use super::SurrealRequest;
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct SurrealResponseError {
     pub code: isize,
@@ -12,11 +14,11 @@ pub struct SurrealResponseError {
 #[serde(untagged)]
 pub enum SurrealResponse {
     Error {
-        id: String,
+        id: u32,
         error: SurrealResponseError,
     },
     Result {
-        id: String,
+        id: u32,
         result: Option<Vec<QueryReply>>,
     },
 }
@@ -36,17 +38,25 @@ impl From<SurrealResponse> for SurrealResponseResult {
 }
 
 impl SurrealResponse {
-    pub fn id(&self) -> String {
+    pub fn id(&self) -> u32 {
         match self {
             SurrealResponse::Result { id, .. } => id.clone(),
             SurrealResponse::Error { id, .. } => id.clone(),
         }
     }
 
-    pub fn check_id(&self, compare: &str) -> bool {
+    pub fn check_id(&self, compare: u32) -> bool {
         match self {
-            SurrealResponse::Result { id, .. } => id.eq(compare),
-            SurrealResponse::Error { id, .. } => id.eq(compare),
+            SurrealResponse::Result { id, .. } => *id == compare,
+            SurrealResponse::Error { id, .. } => *id == compare,
+        }
+    }
+
+    pub fn is_for(&self, request: &SurrealRequest) -> bool {
+        let req_id = request.id;
+        match self {
+            SurrealResponse::Result { id, .. } => *id == req_id,
+            SurrealResponse::Error { id, .. } => *id == req_id,
         }
     }
 }

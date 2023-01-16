@@ -2,7 +2,7 @@
 
 use proc_macro::TokenStream as TokenStreamOld;
 use proc_macro2::{Span, TokenStream};
-use proc_macro_error::{emit_call_site_error, proc_macro_error, emit_error};
+use proc_macro_error::*;
 use quote::quote;
 use syn::*;
 
@@ -125,20 +125,35 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 //
 //
 //
-
+/// Implements `SurrealRecord` for a struct. Very useful for defining your 
+/// databases schema
 #[proc_macro_error]
 #[proc_macro_derive(SurrealRecord, attributes(table))]
 pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
     let obj = parse_macro_input!(input as DeriveInput);
 
     let Data::Struct( st ) = obj.data else {
+        emit_error!( obj, "Derive only works on Structs (so far)");
         panic!("Derive only works on Structs (so far)")
     };
 
     let mut out = TokenStream::new();
     let mut has_id_field = false;
+    let mut field_defs = TokenStream::new();
+    let mut field_names = TokenStream::new();
     let struct_name = &obj.ident;
 
+    let mut table_name = None;
+    for attr in obj.attrs {
+        let Some( attr_name ) = attr.path.get_ident() else { continue };
+        if attr_name.ne("table") { continue }
+        let Ok( val ) = attr.parse_args::<LitStr>() else { continue };
+        table_name = Some( val );
+    }
+
+    if table_name.is_none() {
+        emit_error!( st.struct_token, "Expected a #[table()] attribute");
+    }
 
     for field in st.fields {
         let Some( ident ) = field.ident else {
@@ -149,6 +164,17 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
         let Type::Path( path ) = field.ty else { continue };
         let Some( last ) = path.path.segments.last() else { continue };
         let ty_name = last.ident.to_string();
+
+        if ident.to_string().ne("id") {
+            if last.ident.eq("String") {
+                field_names.extend(quote!{ #ident: #ident.to_string(), });
+                field_defs.extend(quote!{ #ident: impl ToString, });
+            }
+            else {
+                field_names.extend(quote!{ #ident, });
+                field_defs.extend(quote!{ #ident: #path, });
+            }
+        }
 
         match ty_name.as_str() {
             "RecordLink" => {
@@ -167,51 +193,37 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
             },
             _ => continue
         }
-        // if let Some( ident ) = field.ident
-        // && ident.to_string().eq("id")
-        // && let Visibility::Public(_) = field.vis {
-        //     has_id_field = true;
-        //     match field.ty {
-        //         Type::Path( typath )
-        //         if typath.to_token_stream().to_string().contains("RecordId") => {
-        //         }
-        //     }            if Type::Path( path ) = field.ty {
-        //         if .to_token_stream().to_string().contains("RecordId")
-        //         has_id_field = true;
-        //         continue =  {
-        //     }
-        // }
-
-        // let Type::Path( path ) = field.ty else { continue };
-        // let Some( last ) = path.path.segments.last() else { continue };
-        // if last.ident.to_string().ne("RecordLink") {
-        //     continue;
-        // };
-        // let PathArguments::AngleBracketed( inner_ty ) = &last.arguments else { continue };
-        // let inner_ty = &inner_ty.args;
-        // out.extend(quote!{
-        //     pub fn #ident ( &self ) -> & #inner_ty {
-        //         self . #ident . record() . unwrap()
-        //     }
-        // });
     }
 
     if !has_id_field {
         emit_call_site_error!( "Missing `id` field";
             help = "SurrealRecord derive macro requires an `id` to be defined like so:\n\tpub id: RecordId,\n\n"
         );
+
+        return quote!{}.into()
     }
 
-    quote!{
+    let output = quote!{
         impl sdb::prelude::SurrealRecord for #struct_name {
-            fn id(&self) -> sdb::prelude::RecordId {
-                self.id.clone()
+            fn id(&self) -> &sdb::prelude::RecordId {
+                &self.id
+            }
+
+            fn table_name(&self) -> String {
+                #table_name.to_string()
             }
         }
 
         impl #struct_name {
             #out
+            pub fn new( #field_defs ) -> Self {
+                Self {
+                    id: RecordId::placeholder( #table_name ),
+                    #field_names
+                }
+            }
         }
-    }
-    .into()
+    };
+
+    output.into()
 }

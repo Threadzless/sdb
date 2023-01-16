@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// This makes it both easy and fun to use a single record definition
 /// schema that will work both when using **FETCH** clauses and not using them.
 #[derive(Serialize)]
-// #[serde(untagged)]
+#[serde(untagged)]
 pub enum RecordLink<T: SurrealRecord = AnyRecord> {
     Record(Box<T>),
     Link(RecordId),
@@ -22,13 +22,14 @@ impl<'de, T: SurrealRecord> Deserialize<'de> for RecordLink<T> {
         D: serde::Deserializer<'de>,
     {
         let val = Value::deserialize(deserializer)?;
-
+        let val_str = format!("{val:?}");
         match &val {
             Value::String(s) => Ok(Self::Link(RecordId::parse(s).unwrap())),
             _ => match serde_json::from_value(val) {
                 Ok(thing) => Ok(Self::Record(Box::new(thing))),
                 Err(err) => {
-                    panic!("{err:?}")
+
+                    panic!("\n{val_str}\n{err:?}")
                 }
             },
         }
@@ -39,9 +40,9 @@ impl<T: SurrealRecord> RecordLink<T> {
     /// Retrieves the [RecordId] of this field, regardless of if its'
     /// a [RecordId] or a struct representing the record the [RecordId]
     /// would point to.
-    pub fn get_id(&self) -> RecordId {
+    pub fn get_id(&self) -> &RecordId {
         match self {
-            Self::Link(l) => l.clone(),
+            Self::Link(l) => &l,
             Self::Record(r) => (*r).id(),
         }
     }
