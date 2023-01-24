@@ -176,4 +176,24 @@ impl QueryFunc {
 
         queries
     }
+
+
+
+
+    pub fn syntax_check(&self) {
+        let vars = self.arg_vars();
+        let queries = self.full_queries();
+
+        let success = crate::syntaxer::check_syntax(&vars, &queries);
+
+        #[cfg(feature = "query-test")]
+        if success.is_ok() {
+            let full_sql = queries
+                .iter()
+                .map(|(sql, _)| sql.to_string())
+                .collect::<Vec<String>>()
+                .join(";\n");
+            query_tester::live_query_test(full_sql)
+        }
+    }
 }

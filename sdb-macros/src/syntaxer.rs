@@ -1,11 +1,12 @@
+use proc_macro_error::*;
+use regex::Regex;
+use syn::LitStr;
+
 mod bracketer;
 mod pointer;
 
 pub use bracketer::*;
 pub use pointer::*;
-use proc_macro_error::*;
-use regex::Regex;
-use syn::LitStr;
 
 const VAR_FINDER_REGEX: &str = r"\$([[:alnum:]_]+)\b";
 const SELECT_CLAUSE_ORDER: &[&str] = &[
@@ -103,10 +104,18 @@ fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Resul
         if part.starts_with("SELECT") {
             check_select_clause_order(&part, lit);
         }
+        else if part.starts_with("UPDATE") {
+            check_update_clause_order(&part, lit);
+        }
+        else {
+            
+        }
     }
     Ok(())
 }
 
+
+// 
 fn check_select_clause_order(part: &str, lit: &LitStr) {
     let mut last_name = "SELECT";
     let mut last_index = 0;
@@ -123,6 +132,36 @@ fn check_select_clause_order(part: &str, lit: &LitStr) {
         }
         last_name = clause;
         last_index = now_idx;
+    }
+}
+
+
+///
+fn check_update_clause_order(part: &str, lit: &LitStr) {
+    let mut last_name = "UPDATE";
+    let mut last_index = 0;
+    
+    for clause in &UPDATE_CLAUSE_ORDER[1..] {
+        let Some( now_idx ) = part.find(clause) else { continue };
+        if now_idx < last_index {
+            emit_error!(
+                lit, "UPDATE Clauses out of order";
+                help = "`{}` clause must come after `{}` clause", clause, last_name;
+            );
+
+            return;
+        }
+        last_name = clause;
+        last_index = now_idx;
+    }
+
+    for kw in vec!["ORDER", "SPLIT", "GROUP"] {
+        if part.find(kw).is_some() {
+            emit_error!(
+                lit, "UPDATE query doesn't support that clause";
+                help = "`{}` clause doesn't apply to UPDATE queries", kw;
+            );            
+        }
     }
 }
 

@@ -184,7 +184,11 @@ fn quote_count(method: &QueryMethod, sql: &mut String) {
     *sql = match method.arg_count() {
         0 => {
             format!("SELECT * FROM count(({sql}))")
-        }
+        },
+
+        1 if let Some( field ) = method.arg_str(0) => {
+            format!("SELECT * FROM count((SELECT * FROM (SELECT {field} FROM ({sql}))))")
+        },
 
         _ => {
             return emit_error!(

@@ -76,6 +76,7 @@ impl SurrealInterface for HttpSurrealInterface {
                     query: String::new(),
                     target_type: "Vec<QueryReply>".to_string(),
                     serde_err: e,
+                    value: None,
                 }),
             },
             _ => panic!("Invalid response"),

@@ -1,9 +1,10 @@
 #![feature(async_closure)]
 use sdb::prelude::*;
 use serde::{Deserialize, Serialize};
-use simplelog::*;
 
-async fn run() -> Result<(), SdbError> {
+
+#[tokio::main]
+async fn main() -> Result<(), SdbError> {
     // Create client
     let client = SurrealClient::open("127.0.0.1:8000/example/demo")
         .auth_basic("demo_user", "demo_pass")
@@ -31,12 +32,12 @@ async fn run() -> Result<(), SdbError> {
     }
 
 
-    let min_word_count = 250000;
+    let min_word_count = 259_500;
 
     // Run multiple queries together (errors are automatically bubbled)
     sdb::query!( client => {
 
-        { min_word_count } => $mwc;
+        { min_word_count + 500 } => $mwc;
 
         // Store results of a query in a transaction variable.
         // Queries that follow can act on these results
@@ -72,29 +73,4 @@ pub struct BookSchema {
     pub id: RecordId,
     pub title: String,
     pub word_count: Option<usize>,
-}
-
-//
-//
-//
-//
-//
-
-fn main() {
-    // Logging
-    TermLogger::init(
-        LevelFilter::Info,
-        Config::default(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )
-    .unwrap();
-
-    // run async
-    let pool = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-
-    pool.block_on(run()).unwrap();
 }

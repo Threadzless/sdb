@@ -32,11 +32,15 @@ impl QueryReply {
             return Some(one);
         }
 
+
+        if let Ok( val ) = serde_json::from_value::<T>(one.clone()) {
+            return Some( val )
+        }
         match one.take() {
             Value::Object(mut obj) if obj.keys().len() == 1 => {
                 let (_, inner) = obj.iter_mut().next().unwrap();
                 serde_json::from_value::<T>(inner.take()).ok()
-            }
+            },
             _ => None,
         }
     }

@@ -1,6 +1,6 @@
 [package]
 name = "sdb"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "An unofficial SurrealDB client that works in wasm"
 readme = "README.md"
@@ -14,20 +14,32 @@ exclude = ["/example.db", "example-db-content.sql"]
 path = "src/lib.rs"
 
 [dependencies]
-sdb-base = { path = "../sdb-base", default-features = false }
-sdb-macros = { path = "../sdb-macros", default-features = false }
-
+async-trait = "0.1"
+serde = { version = "1.0", features = [ "derive" ] }
+serde_json = "1.0"
+base64 = { version = "0.20" }
+rand = "0.8.5"
 log = { version = "0.4", optional = true }
 
+sdb-macros = { path = "../sdb-macros"}
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+reqwest = { version = "0.10", optional = true }
+websockets = { version = "0.3", optional = true }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+futures = { version = "0.3.25", optional = true }
+gloo-net = { version = "0.2", optional = true }
+
+sdb-macros = { path = "../sdb-macros", default-features = false }
+# sdb-macros = { path = "../sdb-macros", default-features = false }
+
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
 serde = "1.0"
 serde_json = "1.0"
 log = { version = "0.4" }
-simplelog = { version = "0.12" }
+tokio = { version = "1", features = ["full"] }
 tokio-test = "0.4"
-
-sdb-base = { path = "../sdb-base", default-features = false, features = [ "extras" ] }
 
 [features]
 default = [
@@ -35,19 +47,18 @@ default = [
     "http",
     "ws",
 ]
-log = [
-    "dep:log",
-    "sdb-base/log",
-]
 http = [ 
-    "sdb-base/http",
+    "gloo-net",
+    "reqwest",
 ]
 ws = [
-    "sdb-base/ws",
+    "futures",
+    "gloo-net",
+    "websockets",
 ]
 tikv = [
-    "sdb-base/tikv",
 ]
+# include some helpers for doctests. this are not useful outside of this librarie's self-testing
 macro-print = [
     "sdb-macros/macro-print",
 ]

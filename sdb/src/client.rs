@@ -10,7 +10,7 @@ pub use builder::*;
 pub use interface::*;
 
 /// The URL to access the demo database. See [`demo()`](fn@SurrealClient::demo)
-const DEMO_URL: &str = "ws://test_user:test_pass@127.0.0.1:8000/example/demo";
+const DEMO_URL: &str = "ws://demo_user:demo_pass@127.0.0.1:8000/example/demo";
 
 #[derive(Clone)]
 pub struct SurrealClient {
@@ -27,13 +27,9 @@ impl SurrealClient {
     /// The demo database is launched by running [`launch-demo-db.sh`](launch_demo-db.sh)
     ///
     /// This method is to make tests and demos more convienient, and shouldn't be used in outside of those cases.
-    #[cfg(any(test, doctest, feature = "extras"))]
+    // #[cfg(any(test, doctest, feature = "extras"))]
     pub fn demo() -> Self {
-        let Ok( me ) = Self::open(DEMO_URL).build() else {
-            panic!("\n\nYou forgot to start the demo server\n ./launch-demo-db.sh\n")
-        };
-
-        me
+        Self::open(DEMO_URL).build().unwrap()
     }
 
     /// What server am I connecting to?
@@ -68,6 +64,7 @@ impl SurrealClient {
 
         #[cfg(feature = "log")]
         log::info!("Sending Query: \n\t{}\n", full_sql);
+        println!("Sending Query: \n\t{}\n", full_sql);
 
         let request = SurrealRequest::query(full_sql);
         match self.run_request(request).await? {
@@ -75,12 +72,13 @@ impl SurrealClient {
                 #[cfg(feature = "log")]
                 log::error!("SurrealDB response: {:?}", error);
 
-                panic!("Surreal Responded with an error");
+                panic!("Surreal Responded with an error\n{error:#?}\n");
             }
             SurrealResponse::Result { result, .. } => match result {
                 Some(res) => Ok(TransactionReply::new(queries, res)),
                 None => {
-                    panic!("~ ~\n{result:?}\n")
+                    println!("~ ~\n{result:?}\n");
+                    panic!()
                 }
             },
         }

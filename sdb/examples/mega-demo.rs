@@ -1,7 +1,8 @@
 use sdb::prelude::*;
 use serde::{Deserialize, Serialize};
 
-async fn run() -> Result<(), SdbError> {
+#[tokio::main]
+async fn main() -> Result<(), SdbError> {
     // Open a new client
     let client = SurrealClient::open("ws://127.0.0.1:8000/example/demo")
         .auth_basic("demo_user", "demo_pass")
@@ -155,24 +156,4 @@ pub struct BookSchema {
 pub struct AuthorSchema {
     pub id: RecordId,
     pub name: String,
-}
-
-//
-//
-//
-
-#[tokio::main]
-async fn main() {
-    use simplelog::*;
-
-    // Logging
-    TermLogger::init(
-        LevelFilter::Warn,
-        Config::default(),
-        TerminalMode::Mixed,
-        ColorChoice::Auto,
-    )
-    .unwrap();
-
-    run().await.unwrap();
 }

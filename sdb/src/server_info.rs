@@ -9,7 +9,7 @@ use crate::{
 ///
 /// ### Example
 /// ```rust
-/// # use sdb_base::prelude::*;
+/// # use sdb::prelude::*;
 ///
 /// let connect_url = "wss://192.168.8.6:12345/test/demo";
 /// let info = ServerInfo::new( connect_url, None, None ).unwrap();

@@ -1,10 +1,11 @@
-use crate::{client::SurrealResponseError, reply::QueryReply};
-use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
+use serde_json::Value;
 
-pub type SdbResult<T> = Result<T, SdbError>;
+use crate::{client::SurrealResponseError, reply::QueryReply};
+use std::fmt::{*, Result as FmtResult};
+
+pub type SdbResult<T> = std::result::Result<T, SdbError>;
 
 // TODO: improve error system like a lot
-#[derive(Debug)]
 pub enum SdbError {
     UnableToParseAsRecordId {
         input: String,
@@ -38,6 +39,7 @@ pub enum SdbError {
         query: String,
         target_type: String,
         serde_err: serde_json::Error,
+        value: Option<Value>,
     },
 
     ConnectionClosed {
@@ -85,11 +87,39 @@ pub enum SdbError {
     WebsocketNetworkError(gloo_net::websocket::WebSocketError),
 }
 
-impl std::error::Error for SdbError {}
-
-impl Display for SdbError {
+impl Debug for SdbError {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        Debug::fmt(self, f)
+        match self {
+            Self::QueryResultParseFailure { query, target_type, value: Some( v ), .. } => {
+                write!(f, "Failed to parse value as {target_type}:\n\t{v:?}\n\n{query}\n")
+            },
+            Self::QueryResultParseFailure { query, target_type, value: None, .. } => {
+                write!(f, "Failed to parse value as {target_type}\n\n{query}\n")
+            },
+
+            Self::UnableToParseAsRecordId { input } => f.debug_struct("UnableToParseAsRecordId").field("input", input).finish(),
+            Self::ServerNotSurreal { why } => f.debug_struct("ServerNotSurreal").field("why", why).finish(),
+            Self::QuerySyntaxError { query, message } => f.debug_struct("QuerySyntaxError").field("query", query).field("message", message).finish(),
+            Self::InvalidHostString { found } => f.debug_struct("InvalidHostString").field("found", found).finish(),
+            Self::ConnectionClosed { info, url } => f.debug_struct("ConnectionClosed").field("info", info).field("url", url).finish(),
+            Self::ZeroQueryResults { query } => f.debug_struct("ZeroQueryResults").field("query", query).finish(),
+            Self::QueryTimeout => write!(f, "QueryTimeout"),
+            Self::NetworkTimeout => write!(f, "NetworkTimeout"),
+            Self::ConnectionRefused { url } => f.debug_struct("ConnectionRefused").field("url", url).finish(),
+            Self::OversizedPayload => write!(f, "OversizedPayload"),
+            
+            // x86 only
+            #[cfg(all(feature = "http", not(target_family = "wasm")))]
+            Self::HttpNetowrkError(arg0) => f.debug_tuple("HttpNetowrkError").field(arg0).finish(),
+            #[cfg(all(feature = "http", not(target_family = "wasm")))]
+            Self::WebsocketNetworkError(arg0) => f.debug_tuple("WebsocketNetworkError").field(arg0).finish(),
+
+            // wasm only 
+            #[cfg(all(feature = "http", target_family = "wasm"))]
+            Self::HttpNetowrkError(arg0) => f.debug_tuple("HttpNetowrkError").field(arg0).finish(),
+            #[cfg(all(feature = "http", target_family = "wasm"))]
+            Self::WebsocketNetworkError(arg0) => f.debug_tuple("WebsocketNetworkError").field(arg0).finish(),
+        }
     }
 }
 
@@ -100,6 +130,7 @@ impl SdbError {
             query: reply.query(),
             target_type: core::any::type_name::<T>().to_string(),
             serde_err: err,
+            value: Some( reply.result.clone() )
         }
     }
 }

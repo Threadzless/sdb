@@ -79,6 +79,7 @@ impl SurrealInterface for WSSurrealInterface {
                 query: request.params[0].to_string(),
                 target_type: "SurrealResponse".to_string(),
                 serde_err: err,
+                value: None,
             }),
         }
     }

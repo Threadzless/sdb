@@ -1,6 +1,6 @@
 [package]
 name = "sdb-macros"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 description = "An unofficial SurrealDB client, intended for working with Yew"
 readme = "README.md"
@@ -32,7 +32,7 @@ default-features = false
 
 [dev-dependencies]
 tokio-test = "0.4"
-sdb-base = { path = "../sdb-base" }
+sdb = { path = "../sdb" }
 
 [features]
 default = [

@@ -1,4 +1,7 @@
 #![feature(let_chains, if_let_guard, box_patterns, async_closure)]
+#![feature(proc_macro_diagnostic)]
+#![feature(proc_macro_span_shrink)]
+#![allow(unused)]
 
 use proc_macro::TokenStream as TokenStreamOld;
 use proc_macro2::{Span, TokenStream};
@@ -22,12 +25,7 @@ use syntaxer::*;
 /// See the crate documentation or README for a full breakdown of the macro
 /// 
 /// ```rust
-/// # mod sdb {
-/// #   pub use sdb_base::*;
-/// #   pub use sdb_macros::query;
-/// # };
-/// # use sdb_base::prelude::*;
-/// # use sdb_macros::*;
+/// # use sdb::prelude::*;
 /// #
 /// # tokio_test::block_on( async {
 /// #     test_main().await.unwrap();
@@ -49,7 +47,7 @@ use syntaxer::*;
 /// # }
 /// #
 /// #
-/// # #[derive(serde::Deserialize, SurrealRecord)]
+/// # #[derive(serde::Serialize, serde::Deserialize, SurrealRecord)]
 /// # #[table("books")]
 /// # pub struct BookSchema {
 /// #     pub id: RecordId,
@@ -58,7 +56,7 @@ use syntaxer::*;
 /// #     pub author: RecordLink<AuthorSchema>,
 /// # }
 /// # 
-/// # #[derive(serde::Deserialize, SurrealRecord)]
+/// # #[derive(serde::Serialize, serde::Deserialize, SurrealRecord)]
 /// # #[table("authors")]
 /// # pub struct AuthorSchema {
 /// #     pub id: RecordId,
@@ -81,19 +79,7 @@ use syntaxer::*;
 pub fn query(input: TokenStreamOld) -> TokenStreamOld {
     let query_func = parse_macro_input!(input as QueryFunc);
 
-    let vars = query_func.arg_vars();
-    let queries = query_func.full_queries();
-    if check_syntax(&vars, &queries).is_ok() {
-        #[cfg(feature = "query-test")]
-        {
-            let full_sql = queries
-                .iter()
-                .map(|(sql, _)| sql.to_string())
-                .collect::<Vec<String>>()
-                .join(";\n");
-            query_tester::live_query_test(full_sql)
-        }
-    }
+    query_func.syntax_check();
 
     let client = &query_func.client;
     let trans = Ident::new("db_trans", Span::call_site());
@@ -204,7 +190,7 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
     }
 
     let output = quote!{
-        impl sdb::prelude::SurrealRecord for #struct_name {
+        impl ::sdb::prelude::SurrealRecord for #struct_name {
             fn id(&self) -> &sdb::prelude::RecordId {
                 &self.id
             }
@@ -218,7 +204,7 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
             #out
             pub fn new( #field_defs ) -> Self {
                 Self {
-                    id: RecordId::placeholder( #table_name ),
+                    id: ::sdb::prelude::RecordId::placeholder( #table_name ),
                     #field_names
                 }
             }

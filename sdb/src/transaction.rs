@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Serialize, Deserialize};
 
 use crate::{client::SurrealClient, error::*, reply::TransactionReply};
 
@@ -25,7 +25,6 @@ impl TransactionBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use sdb_base as sdb;
     /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
@@ -39,7 +38,8 @@ impl TransactionBuilder {
     /// let five_books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
     /// #
-    /// # #[derive(Clone, Deserialize)]
+    /// # #[derive(Serialize, Deserialize, SurrealRecord)]
+    /// # #[table("books")]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,
     /// #     pub title: String,
@@ -62,7 +62,6 @@ impl TransactionBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use sdb_base as sdb;
     /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
@@ -76,7 +75,8 @@ impl TransactionBuilder {
     ///     
     /// let books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
-    /// # #[derive(Clone, Deserialize)]
+    /// # #[derive(Serialize, Deserialize, SurrealRecord)]
+    /// # #[table("books")]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,
     /// #     pub title: String,
@@ -112,7 +112,6 @@ impl TransactionBuilder {
     ///
     /// ## Example
     /// ```
-    /// # use sdb_base as sdb;
     /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
@@ -126,7 +125,8 @@ impl TransactionBuilder {
     ///     
     /// let five_books: Vec<BookSchema> = reply.next_vec().unwrap();
     /// # });
-    /// # #[derive(Clone, Deserialize)]
+    /// # #[derive(Serialize, Deserialize, SurrealRecord)]
+    /// # #[table("books")]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,
     /// #     pub title: String,
@@ -144,9 +144,7 @@ impl TransactionBuilder {
     /// Executes a query and stores its results in a transaction variable.
     ///
     /// ```rust
-    /// # use sdb_base::prelude::*;
-    /// # use sdb_macros::*;
-    /// # use sdb_base as sdb;
+    /// # use sdb::prelude::*;
     /// # use serde::{Serialize, Deserialize};
     /// #
     /// # async fn main_test() {
@@ -167,7 +165,8 @@ impl TransactionBuilder {
     /// #     main_test().await
     /// # });
     /// #
-    /// # #[derive(Clone, Deserialize, SurrealRecord)]
+    /// # #[derive(Serialize, Deserialize, SurrealRecord)]
+    /// # #[table("books")]
     /// # pub struct BookSchema {
     /// #     pub id: RecordId,
     /// #     pub title: String,

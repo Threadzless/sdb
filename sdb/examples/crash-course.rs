@@ -57,7 +57,7 @@ async fn main() -> SdbResult<()> {
 
     // Inject variables into the query
     let search = "George";
-    sdb::query!( client =[ search, 5 ]=> {
+    sdb::query!( client =[ search, max: 5 ]=> {
         // Use variable
         "SELECT * FROM books WHERE author.name ~ $0" => books_by: Vec<Book>;
 

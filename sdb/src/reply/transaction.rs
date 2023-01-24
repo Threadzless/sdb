@@ -41,6 +41,8 @@ impl TransactionReply {
         #[cfg(feature = "log")]
         log::debug!("> {:?}\n", reply);
 
+        println!("> {:?}\n", reply);
+
         self.index += 1;
         reply
     }
@@ -65,13 +67,15 @@ impl TransactionReply {
     {
         let result = self.next_result();
         let Value::Array(mut arr) = result.result.take() else {
-            panic!("Invalid input Transaction::next_option");
+            panic!("Invalid input Transaction::next_opt");
         };
 
-        let Some( first ) = arr.get_mut( 0 ) else { return Ok( None ) };
+        let Some( first ) = arr.get_mut( 0 ) else {
+            panic!();
+        };
 
         if first.is_null() {
-            return Ok(None);
+            panic!();
         };
 
         match from_value::<T>(first.take()) {
@@ -86,14 +90,22 @@ impl TransactionReply {
         T: for<'de> Deserialize<'de>,
     {
         let result = self.next_result();
+        let Value::Array(mut arr) = result.result.clone() else {
+            panic!("Invalid input Transaction::next_one");
+        };
 
-        let val = result.parse_opt::<T>();
+        let Some( first ) = arr.get_mut( 0 ) else {
+            panic!();
+        };
 
-        match val {
-            Some(v) => Ok(v),
-            None => Err(SdbError::ZeroQueryResults {
-                query: result.query(),
-            }),
+        if first.is_null() {
+            panic!();
+        };
+
+        match from_value::<T>(first.take()) {
+            Ok(v) => Ok(v),
+            Err(err) => Err(SdbError::parse_failure::<T>(result, err)),
         }
+
     }
 }

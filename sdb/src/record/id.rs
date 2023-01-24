@@ -49,13 +49,6 @@ impl RecordId {
     }
 
     /// Used for creating records
-    /// 
-    /// ```rust
-    /// # use sdb_base as sdb;
-    /// 
-    /// 
-    /// #[derive(S)]
-    /// ```
     pub fn placeholder(table_name: &str) -> Self {
         Self {
             table: table_name.to_string(),

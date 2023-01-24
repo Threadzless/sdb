@@ -1,41 +1,82 @@
-#![warn(missing_docs)]
+#![feature(let_chains, if_let_guard)]
 
-/*!
-Surreal Data Base client
-=========================
+pub use sdb_macros::*;
 
-An unofficial official client for SurrealDb, with convienience macros and compile time syntax checking.
+mod client;
+mod interfaces;
+mod reply;
+mod transaction;
 
-*/
+mod credentials;
+mod error;
+mod protocol;
+mod record;
+mod server_info;
 
-#[cfg(test)]
-#[allow(unused)]
-use serde::Serialize;
-#[cfg(test)]
-#[allow(unused)]
-use serde_json::Value;
 
-// pub use sdb_macros::*;
-pub use sdb_base::*;
-
-// documentation links
-#[allow(unused_imports)]
-use sdb_base as sdb;
-#[allow(unused_imports)]
-use sdb_base::prelude::*;
-
-pub use sdb_macros::query;
-
-pub use sdb_macros::SurrealRecord;
-
-/// This is the only thing you need to import.
 pub mod prelude {
-    pub use sdb_base::prelude::*;
-
-    pub use sdb_macros::*;
-
-    pub use crate::query;
+    pub use sdb_macros::SurrealRecord;
+    pub use crate::{
+        client::interface::{SurrealRequest, SurrealResponse, SurrealResponseError, RequestMethod},
+        client::SurrealClient,
+        credentials::Credentials,
+        error::{SdbError, SdbResult},
+        protocol::Protocol,
+        record::*,
+        reply::TransactionReply,
+        server_info::ServerInfo,
+        transaction::TransactionBuilder,
+    };
 }
 
-// #[cfg(doctest)]
-// pub use sdb_base::example;
+
+#[doc = include_str!("../../README.md")]
+#[allow(unused)]
+pub struct ReadMe { }
+
+
+/// A little helper for de-cluttering the examples code in [README.md](README.md)
+/// and other places
+#[macro_export]
+macro_rules! doctest {
+    { $client: ident => { $($arg:tt)+ }} => {
+        sdb::doctest!{
+            let $client = SurrealClient::demo();
+            $($arg)+
+        }
+    };
+    { $($arg:tt)+ } => {
+        use sdb::prelude::*;
+        use serde::*;
+
+        tokio_test::block_on( async {
+            main_test( ).await.unwrap()
+        });
+
+        async fn main_test() -> SdbResult<()> {
+            $($arg)+
+            ;
+            Ok( () )
+        }
+
+        #[derive(Serialize, Deserialize, SurrealRecord)]
+        #[table("books")]
+        struct Book {
+            pub id: RecordId,
+            pub title: String,
+            pub word_count: Option<usize>,
+            pub summary: Option<String>,
+            pub author: RecordLink<Author>,
+        }
+
+        #[derive(Serialize, Deserialize, SurrealRecord)]
+        #[table("authors")]
+        struct Author {
+            pub id: RecordId,
+            pub name: String,
+            pub is_alive: Option<bool>,
+        }
+    };
+}
+
+

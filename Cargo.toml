@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "sdb",
-    "sdb-base",
     "sdb-macros",
 ]
 

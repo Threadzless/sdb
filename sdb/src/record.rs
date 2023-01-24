@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, Map};
+use serde::{Serialize, Deserialize};
 
 mod any;
 mod id;
@@ -16,21 +16,17 @@ pub use link::*;
 ///
 /// ## Examples
 /// ```rust
-/// # use sdb_macros::*;
-/// # use sdb_base::prelude::*;
-/// # use sdb_base as sdb;
-/// # use serde::{Serialize, Deserialize};
-/// #
+/// use sdb::prelude::*;
+/// use serde::{Serialize, Deserialize};
+/// 
 /// #[derive(Serialize, Deserialize, SurrealRecord)]
 /// #[table("books")]
 /// struct Book {
-///     // All 
 ///     pub id: RecordId,
 ///     pub title: String,
 ///     pub blurb: Option<String>,
 ///     pub tags: Vec<String>,
-///     // RecordLink<T> is an enum RecordId or the contents of 
-///     // that record. 
+///     // RecordLink<T> is an enum RecordId or the contents of that record. 
 ///     pub author: RecordLink<Author>,
 ///     pub publisher: RecordLink<Publisher>,
 /// }

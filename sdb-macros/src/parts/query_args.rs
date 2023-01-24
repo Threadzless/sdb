@@ -7,61 +7,50 @@ use syn::{buffer::Cursor, parse::*, punctuated::Punctuated, token::CustomToken, 
 pub struct QueryArgs {
     pub _eq: Token![=],
     pub _bracket: token::Bracket,
-    pub fields: Punctuated<Expr, Token![,]>,
+    pub fields: Punctuated<QueryArg, Token![,]>,
 }
 
 impl QueryArgs {
     pub fn field_assigns(&self) -> TokenStream {
         let mut assigns = TokenStream::new();
-        for (idx, expr) in self.fields.iter().enumerate() {
-            let span = Span::call_site();
-            let var_name = LitStr::new(&idx.to_string(), span);
+        for (idx, arg) in self.fields.iter().enumerate() {
+            let var_num = LitStr::new(&idx.to_string(), Span::call_site());
 
-
-            assigns.extend(quote! {
-                .push_var( #var_name, #expr )
-            });
-
-            match expr {
-                Expr::Cast( ExprCast { ty, .. } ) => {
-                    let name = (*ty).to_token_stream().to_string();
-                    let cast_name = LitStr::new(&name, Span::call_site());
+            match arg {
+                QueryArg::Expr( expr ) => {
                     assigns.extend(quote! {
-                        ._name_var( #cast_name, #var_name )
+                        .push_var( #var_num, #expr )
                     });
                 },
-
-                Expr::Path( ExprPath { path, .. } )
-                if path.segments.len() == 1
-                && let Some( PathSegment { ident, .. } ) = path.segments.last() => {
-                    let cast_name = LitStr::new(&ident.to_string(), ident.span());
+                QueryArg::Var( ident ) => {
+                    let var_name = LitStr::new(&ident.to_string(), ident.span());
                     assigns.extend(quote! {
-                        ._name_var( #cast_name, #var_name )
+                        .push_var( #var_num, #ident )
+                        ._name_var( #var_name, #var_num )
                     });
                 },
-
-                _ => {}
-            };
+                QueryArg::Alias { name, expr, .. } => {
+                    let var_name = LitStr::new(&name.to_string(), name.span());
+                    assigns.extend(quote! {
+                        .push_var( #var_num, #expr )
+                        ._name_var( #var_name, #var_num )
+                    });
+                },
+            }
         }
         assigns
     }
 
     pub fn arg_names(&self) -> Vec<String> {
         let mut names = vec![];
-        for field in &self.fields {
+        for (index, field) in self.fields.iter().enumerate() {
+            names.push(format!("{index}"));
             match field {
-                Expr::Cast(cast) => {
-                    let name = cast.ty.to_token_stream().to_string();
-                    names.push(name)
-                }
-                Expr::Path(path) if path.path.segments.len() == 1 => {
-                    let name = path.path.segments.first().unwrap().ident.to_string();
-                    names.push(name)
-                }
-                _ => continue,
+                QueryArg::Alias { name, .. } => names.push(name.to_string()),
+                QueryArg::Var( ident ) => names.push(ident.to_string()),
+                _ => { } 
             }
         }
-
         names
     }
 }
@@ -72,7 +61,7 @@ impl Parse for QueryArgs {
         Ok(Self {
             _eq: input.parse()?,
             _bracket: bracketed!(p_input in input),
-            fields: p_input.parse_terminated(Expr::parse)?,
+            fields: p_input.parse_terminated(QueryArg::parse)?,
         })
     }
 }
@@ -100,5 +89,35 @@ impl CustomToken for QueryArgs {
 
     fn display() -> &'static str {
         todo!()
+    }
+}
+
+
+
+pub enum QueryArg {
+
+    Expr( Expr ),
+    Var( Ident ),
+    Alias {
+        name: Ident,
+        _colon: Token![:],
+        expr: Expr,
+    }
+}
+
+
+impl Parse for QueryArg {
+    fn parse(input: ParseStream) -> Result<Self> {
+        if input.peek2(Token![:]) {
+            return Ok(Self::Alias {
+                name: input.parse()?,
+                _colon: input.parse()?,
+                expr: input.parse()?,
+            })
+        }
+        match input.parse::<Ident>() {
+            Err(_) => Ok(Self::Expr( input.parse()? )),
+            Ok( ident ) => Ok(Self::Var( ident )),
+        }
     }
 }
