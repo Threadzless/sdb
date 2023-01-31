@@ -1,16 +1,18 @@
-mod query_args;
-mod query_func;
+mod args;
+mod query;
+mod insert;
 mod result_type;
 mod sql_block;
 mod sql_method;
 
-mod trans_func_args;
+mod vars;
 
-pub(crate) use query_args::*;
-pub(crate) use query_func::*;
+pub(crate) use args::*;
+pub(crate) use query::*;
+pub(crate) use insert::*;
 pub(crate) use result_type::*;
 pub(crate) use sql_block::*;
 pub(crate) use sql_method::*;
 
-mod universal;
-pub(crate) use universal::*;
+mod statement;
+pub(crate) use statement::*;

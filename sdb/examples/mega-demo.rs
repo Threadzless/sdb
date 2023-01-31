@@ -78,7 +78,7 @@ async fn main() -> Result<(), SdbError> {
         "SELECT * FROM books WHERE author.name ~ $search_term LIMIT $1"
             => not_by_george: Vec<BookSchema>;
     });
-    println!("5) Books by '{}'", search_term);
+    println!("5) Books by '{search_term}'");
     for book in by_george {
         println!("     - {}", book.title)
     }    
@@ -119,7 +119,7 @@ async fn main() -> Result<(), SdbError> {
 
         // Get just the title of the first result of `$longest`, aka, the book
         // with the most words, and store it in
-        "$longest" .pluck("title", 1) => longest_title: String;
+        "SELECT * FROM $longest" .pluck("title", 1) => longest_title: String;
 
         // Get the number of books in total with more than 250k words
         "SELECT * FROM $longest" .count() => long_count: i32;

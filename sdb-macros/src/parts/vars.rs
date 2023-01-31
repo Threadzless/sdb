@@ -2,16 +2,16 @@ use syn::{parse::*, punctuated::Punctuated, *};
 
 // use super::*;
 
-pub struct TransFuncArgs {
+pub struct TransactionVars {
     pub _paren: token::Paren,
     pub client: Ident,
     pub _comma: Option<Token![,]>,
     pub fields: Punctuated<Expr, Token![,]>,
 }
 
-impl TransFuncArgs {}
+impl TransactionVars {}
 
-impl Parse for TransFuncArgs {
+impl Parse for TransactionVars {
     fn parse(input: ParseStream) -> Result<Self> {
         let p_input;
         Ok(Self {

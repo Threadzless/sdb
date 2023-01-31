@@ -3,6 +3,8 @@ use std::fmt::{Formatter, Result as FmtResult, Display};
 
 use crate::error::{SdbError, SdbResult};
 
+use super::{RecordLink, SurrealRecord};
+
 const PLACEHOLDER_KEY: &str = "\u{0}";
 
 /// The `id` field of all SurrealDB records, and a
@@ -54,6 +56,12 @@ impl RecordId {
             table: table_name.to_string(),
             key: PLACEHOLDER_KEY.to_string()
         }
+    }
+}
+
+impl<T: SurrealRecord> Into<RecordLink<T>> for RecordId {
+    fn into(self) -> RecordLink<T> {
+        todo!()
     }
 }
 

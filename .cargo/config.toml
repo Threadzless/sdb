@@ -1,4 +1,6 @@
 [env]
+SURREAL_USER = "demo_user"
+SURREAL_PASS = "demo_pass"
 SURREAL_HOST = "127.0.0.1:8000"
-SURREAL_NS = "example"
-SURREAL_DB = "demo"
+SURREAL_NS   = "example"
+SURREAL_DB   = "demo"

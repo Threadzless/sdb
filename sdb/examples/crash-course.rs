@@ -54,7 +54,6 @@ async fn main() -> SdbResult<()> {
         )
     }
 
-
     // Inject variables into the query
     let search = "George";
     sdb::query!( client =[ search, max: 5 ]=> {
@@ -76,28 +75,26 @@ async fn main() -> SdbResult<()> {
     let search = "George";
     sdb::query!( client =[ search ]=> {
         // Add up the values of `word_count` in all books
-        "SELECT * FROM books WHERE author.name ~ $search"
-            .sum("word_count") => total_word_count: usize;
+        "SELECT * FROM `books` LIMIT 10 WHERE `author`.`name` ~ $search"
+            .sum("word_count")
+            => total_word_count: usize;
 
         // Nothing new here
-        "SELECT * FROM books WHERE author.name ~ $search" => $books_by;
+        "SELECT * FROM `books` WHERE `author`.`name` ~ $search" => $books_by;
 
         // Query Sugar™s can operate on query vars directly
-        "$books_by" .count() => author_book_count: usize;
+        "SELECT * FROM count((SELECT * FROM $books_by))"
+            // .count()
+            => author_book_count: usize;
     });
-    println!("\n{:?} published {} books with a total word count of {}",
-        search,
-        author_book_count,
-        total_word_count
-    );
+    println!("\n{search:?} published {author_book_count} books with a total word count of {total_word_count}");
 
 
     // use FETCH clause to get nested data
-    sdb::query!( client => {
-        // Get 5 random book records and their author field
-        "SELECT * FROM books FETCH author"
-            .shuffle() .limit( 5 ) => books_by: Vec<Book>;
+    let books_by = sdb::query!( client => {
+        "SELECT * FROM `books` ORDER rand() LIMIT 5 FETCH `author`" as Vec<Book>;
     });
+
     println!("\nHere are five books and their authors:" );
     for book in books_by {
         println!("  - {:<30} by {}", book.title, book.author().name )

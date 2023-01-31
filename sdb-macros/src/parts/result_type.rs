@@ -95,9 +95,6 @@ impl Parse for QueryResultType {
                 )
             }
         }
-        // else {
-        //     panic!("TODO: 3 hh h h h")
-        // }
     }
 }
 

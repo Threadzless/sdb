@@ -42,7 +42,7 @@ impl<T: SurrealRecord> RecordLink<T> {
     /// would point to.
     pub fn get_id(&self) -> &RecordId {
         match self {
-            Self::Link(l) => &l,
+            Self::Link(l) => l,
             Self::Record(r) => (*r).id(),
         }
     }
@@ -74,4 +74,16 @@ impl<T: SurrealRecord> RecordLink<T> {
     //     }
     //     // self.record().unwrap()
     // }
+}
+
+impl<T: SurrealRecord> From<&T> for RecordLink<T> {
+    fn from(value: &T) -> Self {
+        Self::Link( value.id().clone() )
+    }
+}
+
+impl<T: SurrealRecord> From<&RecordId> for RecordLink<T> {
+    fn from(value: &RecordId ) -> Self {
+        Self::Link( value.clone() )
+    }
 }

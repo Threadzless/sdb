@@ -4,13 +4,13 @@ use syn::{buffer::Cursor, parse::*, punctuated::Punctuated, token::CustomToken, 
 
 // use super::*;
 
-pub struct QueryArgs {
+pub struct SdbArgs {
     pub _eq: Token![=],
     pub _bracket: token::Bracket,
     pub fields: Punctuated<QueryArg, Token![,]>,
 }
 
-impl QueryArgs {
+impl SdbArgs {
     pub fn field_assigns(&self) -> TokenStream {
         let mut assigns = TokenStream::new();
         for (idx, arg) in self.fields.iter().enumerate() {
@@ -55,7 +55,7 @@ impl QueryArgs {
     }
 }
 
-impl Parse for QueryArgs {
+impl Parse for SdbArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let p_input;
         Ok(Self {
@@ -66,13 +66,13 @@ impl Parse for QueryArgs {
     }
 }
 
-impl ToTokens for QueryArgs {
+impl ToTokens for SdbArgs {
     fn to_tokens(&self, _tokens: &mut TokenStream) {
         todo!()
     }
 }
 
-impl CustomToken for QueryArgs {
+impl CustomToken for SdbArgs {
     fn peek(cursor: Cursor) -> bool {
         let Some((p0, cur)) = cursor.punct() else { return false };
         if p0.as_char().ne(&'=') {

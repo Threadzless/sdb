@@ -1,6 +1,6 @@
 [package]
 name = "sdb-macros"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "An unofficial SurrealDB client, intended for working with Yew"
 readme = "README.md"
@@ -23,7 +23,6 @@ proc-macro-error = { version = "1" }
 serde = "1.0"
 serde_json = "1"
 regex = "*"
-inner-macros = { path = "./inner-macros" }
 derive_deref = "1.1.1"
 
 [dependencies.reqwest]

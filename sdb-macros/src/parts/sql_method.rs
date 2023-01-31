@@ -77,7 +77,7 @@ impl QueryMethod {
     pub fn arg_ident(&self, index: usize) -> Option<&Ident> {
         let Some( arg ) = self.args.iter().nth( index ) else { return None };
         match arg {
-            &QuerySugarArg::Ident( ref ident ) => Some( ident ),
+            QuerySugarArg::Ident( ident ) => Some( ident ),
             _ => None,
         }
     }

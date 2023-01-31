@@ -1,10 +1,10 @@
 // use proc_macro2::TokenStream;
 // use quote::{quote, ToTokens};
-use syn::{parse::*, token::*, *, punctuated::Punctuated};
+use syn::{parse::*, token::*, *};
 
 use crate::parts::*;
 
-pub enum UniversalLine {
+pub enum SdbStatement {
     Import {
         source: ExprBlock,
         _arrow: Token![=>],
@@ -48,7 +48,7 @@ pub enum UniversalLine {
 //     }
 // }
 
-impl Parse for UniversalLine {
+impl Parse for SdbStatement {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Brace) {
             return Ok(Self::Import {
@@ -136,6 +136,6 @@ impl Parse for UniversalLine {
 //     }
 
 //     fn display() -> &'static str {
-//         todo!()
+//         
 //     }
 // }

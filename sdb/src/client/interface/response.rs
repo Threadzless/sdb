@@ -40,8 +40,8 @@ impl From<SurrealResponse> for SurrealResponseResult {
 impl SurrealResponse {
     pub fn id(&self) -> u32 {
         match self {
-            SurrealResponse::Result { id, .. } => id.clone(),
-            SurrealResponse::Error { id, .. } => id.clone(),
+            SurrealResponse::Result { id, .. } => *id,
+            SurrealResponse::Error { id, .. } => *id,
         }
     }
 

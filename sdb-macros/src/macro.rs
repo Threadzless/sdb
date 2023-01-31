@@ -1,21 +1,22 @@
 #![feature(let_chains, if_let_guard, box_patterns, async_closure)]
 #![feature(proc_macro_diagnostic)]
 #![feature(proc_macro_span_shrink)]
+#![feature(proc_macro_span)]
 #![allow(unused)]
 
 use proc_macro::TokenStream as TokenStreamOld;
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::*;
-use quote::quote;
+use quote::{quote, ToTokens};
 use syn::*;
 
+// mod sql;
+
 mod parts;
-#[cfg(feature = "query-test")]
-mod query_tester;
-mod syntaxer;
+// #[cfg(feature = "query-test")]
+mod tester;
 
 use parts::*;
-use syntaxer::*;
 
 /// A macro for running SurrealDb queries and transactions without a bunch of boilerplate.
 ///
@@ -77,9 +78,13 @@ use syntaxer::*;
 #[proc_macro_error]
 #[proc_macro]
 pub fn query(input: TokenStreamOld) -> TokenStreamOld {
-    let query_func = parse_macro_input!(input as QueryFunc);
+    let query_func = parse_macro_input!(input as TransactionParse);
 
-    query_func.syntax_check();
+    if let Err( err ) = tester::check_syntax(&query_func) {
+        err.emit();
+        panic!("Found nothing");
+    }
+
 
     let client = &query_func.client;
     let trans = Ident::new("db_trans", Span::call_site());
@@ -107,6 +112,90 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 
     out.into()
 }
+
+
+//
+
+///
+#[proc_macro_error]
+#[proc_macro]
+pub fn insert(input: TokenStreamOld) -> TokenStreamOld {
+    let insert = parse_macro_input!(input as InsertParse);
+
+    let client = &insert.client;
+    let table_name = insert.table.to_string();
+    let fields = insert.fields.to_token_stream().to_string();
+    let field_count = insert.fields.elems.len();
+
+    let mut out = match insert.ignore.is_some() {
+        true => quote!{
+            use ::serde_json::to_string;
+            let mut sql = format!("INSERT IGNORE INTO {} {} VALUES\n", #table_name, #fields); 
+        },
+        false => quote!{
+            use ::serde_json::to_string;
+            let mut sql = format!("INSERT INTO {} {} VALUES\n", #table_name, #fields);
+        }
+    };
+
+    let rows = &insert.values;
+
+    for (i, row) in insert.values.rows.iter().enumerate() {
+        if row.elems.len() != field_count {
+            emit_error!(row, "Rows must all have the same number of elements")
+        }
+
+        if i != 0 {
+            out.extend(quote!{ sql.push_str(",\n"); });
+        }
+        out.extend(quote!{
+            sql.push('(');
+        });
+        for (idx, field) in row.elems.iter().enumerate() {
+            if idx != 0 {
+                out.extend(quote!{ sql.push(','); });
+            }
+            out.extend(quote!{
+                sql.push_str(&to_string( &#field ).unwrap());
+            })
+        }
+        out.extend(quote!{
+            sql.push(')');
+        });
+    }
+
+    let out = quote!{
+        {
+            #out
+            sql.push_str("RETURN id");
+            #client . transaction()
+                .push( &sql )
+                .run()
+                .await
+        }
+    };
+    
+    // if insert.ignore.is_some() {
+    //     out.extend(quote!{ })
+    // }
+    // else {
+    //     out.extend(quote!{
+    //         let mut sql = String::new("INSERT INTO ") 
+    //     })
+    // }
+    //     #client . transaction()
+    //         #arg_steps
+    //         #push_steps
+    //         .run()
+    //         .await #result_act
+    // };
+
+    #[cfg(feature = "macro-print")]
+    println!("\n{out}\n");
+
+    out.into()
+}
+
 
 //
 //
@@ -155,6 +244,10 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
             if last.ident.eq("String") {
                 field_names.extend(quote!{ #ident: #ident.to_string(), });
                 field_defs.extend(quote!{ #ident: impl ToString, });
+            }
+            else if last.ident.eq("RecordLink") {
+                field_names.extend(quote!{ #ident: #ident.into(), });
+                field_defs.extend(quote!{ #ident: impl Into<#path>, });
             }
             else {
                 field_names.extend(quote!{ #ident, });
@@ -210,6 +303,9 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
             }
         }
     };
+
+    // #[cfg(feature = "macro-print")]
+    // println!("\n{output}\n");
 
     output.into()
 }

@@ -1,20 +1,22 @@
 // use proc_macro::TokenStream as TokenStreamOld;
-use proc_macro2::TokenStream;
+use proc_macro2::{TokenStream, Span};
 use quote::quote;
 use syn::{parse::*, punctuated::Punctuated, token::*, *};
 
+#[cfg(feature = "query-test")]
+use crate::tester;
 use crate::parts::*;
 
-pub struct QueryFunc {
+pub struct TransactionParse {
     pub async_tok: Option<Token!(!)>,
     pub client: Ident,
-    pub args: Option<QueryArgs>,
+    pub args: Option<SdbArgs>,
     pub _arrow: FatArrow,
     pub _braces: Brace,
-    pub lines: Punctuated<UniversalLine, Token![;]>,
+    pub lines: Punctuated<SdbStatement, Token![;]>,
 }
 
-impl Parse for QueryFunc {
+impl Parse for TransactionParse {
     fn parse(input: ParseStream) -> Result<Self> {
         let context;
         let me = Self {
@@ -23,7 +25,7 @@ impl Parse for QueryFunc {
             args: input.parse()?,
             _arrow: input.parse()?,
             _braces: braced!(context in input),
-            lines: context.parse_terminated(UniversalLine::parse)?,
+            lines: context.parse_terminated(SdbStatement::parse)?,
         };
 
         me.verify_formatting();
@@ -32,7 +34,7 @@ impl Parse for QueryFunc {
     }
 }
 
-impl QueryFunc {
+impl TransactionParse {
     pub fn arg_steps(&self) -> TokenStream {
         match &self.args {
             Some(a) => a.field_assigns(),
@@ -45,8 +47,8 @@ impl QueryFunc {
         let mut parse_count = 0;
         for line in &self.lines {
             match line {
-                UniversalLine::Parse { .. } => parse_count += 1,
-                UniversalLine::ParseTail { .. } => tail_count += 1,
+                SdbStatement::Parse { .. } => parse_count += 1,
+                SdbStatement::ParseTail { .. } => tail_count += 1,
                 _ => continue,
             }
         }
@@ -68,7 +70,7 @@ impl QueryFunc {
         let mut push_steps = TokenStream::new();
 
         for line in &self.lines {
-            use UniversalLine as Ul;
+            use SdbStatement as Ul;
             match line {
                 Ul::Import {
                     source,
@@ -123,12 +125,12 @@ impl QueryFunc {
             }
         }
 
-        return (push_steps, unpack, result_handle);
+        (push_steps, unpack, result_handle)
     }
 
     pub fn has_trailing(&self) -> bool {
         self.lines.iter().any(|l| match l {
-            UniversalLine::ParseTail { .. } => true,
+            SdbStatement::ParseTail { .. } => true,
             _ => false,
         })
     }
@@ -147,10 +149,10 @@ impl QueryFunc {
 
         for (line_num, line) in self.lines.iter().enumerate() {
             match line {
-                UniversalLine::Import { var_name, .. } => {
+                SdbStatement::Import { var_name, .. } => {
                     vars.push((var_name.to_string(), line_num));
                 }
-                UniversalLine::ToVar { var_name, .. } => {
+                SdbStatement::ToVar { var_name, .. } => {
                     vars.push((var_name.to_string(), line_num));
                 }
                 _ => continue,
@@ -159,17 +161,19 @@ impl QueryFunc {
         vars
     }
 
-    pub fn full_queries(&self) -> Vec<(String, &LitStr)> {
+    pub fn full_queries(&self) -> Vec<(&'_ LitStr, String)> {
         let mut queries = Vec::new();
 
         for line in self.lines.iter() {
             match line {
-                UniversalLine::Import { .. } => continue,
-                UniversalLine::Ignored { sql }
-                | UniversalLine::ToVar { sql, .. }
-                | UniversalLine::Parse { sql, .. }
-                | UniversalLine::ParseTail { sql, .. } => {
-                    queries.push((sql.complete_sql(), &sql.literal))
+                SdbStatement::Import { .. } => continue,
+                SdbStatement::Ignored { ref sql }
+                | SdbStatement::ToVar { ref sql, .. }
+                | SdbStatement::Parse { ref sql, .. }
+                | SdbStatement::ParseTail { ref sql, .. } => {
+                    queries.push(
+                        (&sql.literal, sql.complete_sql())
+                    )
                 }
             }
         }
@@ -180,20 +184,18 @@ impl QueryFunc {
 
 
 
-    pub fn syntax_check(&self) {
-        let vars = self.arg_vars();
-        let queries = self.full_queries();
+    // pub fn syntax_check(&self) {
+    //     tester::check_syntax(self)
 
-        let success = crate::syntaxer::check_syntax(&vars, &queries);
+    //     // let success = crate::syntaxer::check_syntax(&vars, &queries);
 
-        #[cfg(feature = "query-test")]
-        if success.is_ok() {
-            let full_sql = queries
-                .iter()
-                .map(|(sql, _)| sql.to_string())
-                .collect::<Vec<String>>()
-                .join(";\n");
-            query_tester::live_query_test(full_sql)
-        }
-    }
+    //     #[cfg(feature = "query-test")]
+    //     // if success.is_ok() {
+    //         let full_sql = queries
+    //             .iter()
+    //             .map(|(sql, _)| sql.value())
+    //             .collect::<Vec<String>>()
+    //             .join(";\n");
+    //     // }
+    // }
 }

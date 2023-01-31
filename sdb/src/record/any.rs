@@ -99,7 +99,7 @@ impl<'de> Deserialize<'de> for AnyRecord {
     {
         let parsed = <Value as Deserialize>::deserialize(deserializer)?;
         let Value::Object( ref obj ) = parsed else { panic!() };
-        let Some( &Value::String( ref id_str ) ) = obj.get("id") else { panic!() };
+        let Some( Value::String( id_str ) ) = obj.get("id") else { panic!() };
         let id =RecordId::parse( id_str.clone() ).expect("A valid recordId");
         Ok( Self {
             id,
@@ -114,7 +114,7 @@ impl SurrealRecord for AnyRecord {
     }
 
     fn table_name(&self) -> String {
-        self.id.table().clone()
+        self.id.table()
     }
 
     fn record_fields(&self) -> Map<String, Value> {

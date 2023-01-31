@@ -41,7 +41,7 @@ impl TransactionReply {
         #[cfg(feature = "log")]
         log::debug!("> {:?}\n", reply);
 
-        println!("> {:?}\n", reply);
+        println!("> {reply:?}\n");
 
         self.index += 1;
         reply

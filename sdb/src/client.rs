@@ -64,7 +64,7 @@ impl SurrealClient {
 
         #[cfg(feature = "log")]
         log::info!("Sending Query: \n\t{}\n", full_sql);
-        println!("Sending Query: \n\t{}\n", full_sql);
+        println!("Sending Query: \n\t{full_sql}\n");
 
         let request = SurrealRequest::query(full_sql);
         match self.run_request(request).await? {
@@ -117,7 +117,7 @@ impl SurrealClient {
     /// the server will accept this
     pub async fn change_db(&mut self, new_db: &str) -> SdbResult<()>{
         let ns = &self.server().namespace.clone();
-        self.change_ns(&ns, new_db).await
+        self.change_ns(ns, new_db).await
     }
 
     /// Change which namespace and database queries will act on and verifies that
@@ -176,7 +176,7 @@ impl SurrealClient {
     /// Create a new record. When creating the record in rust, set the `id` field
     /// to `RecordId::placeholder()` to have the SurrealDb server generate the id for
     /// you.
-    pub async fn create<R>(&mut self, record: R) -> SdbResult<R>
+    pub async fn create<R>(&mut self, record: R) -> SdbResult<RecordId>
     where
         R: SurrealRecord
     {
@@ -189,15 +189,41 @@ impl SurrealClient {
         };
 
         let mut reply = self.transaction()
-            .push(&format!("CREATE {create} CONTENT {contents} RETURN *"))
+            .push(&format!("CREATE {create} CONTENT {contents} RETURN id"))
             .run()
             .await?;
 
-        reply.next_one::<R>()
+        reply.next_one::<RecordId>()
     }
 
-    // TODO: maybe this needs to be a macro?
-    // pub async fn insert_into(&mut self, table: &str, field_names: (&str))
+
+    /// Insert a bunch of new records into the database, and return a list of their ids
+    pub async fn insert<R>(&mut self, records: Vec<R>) -> SdbResult<Vec<RecordId>>
+    where
+        R: SurrealRecord
+    {
+        let mut trans = self.transaction();
+
+        for rec in records {
+            let fields = rec.record_fields();
+            let contents = obj_to_contents( &fields );
+            let rid = rec.id();
+            let create = match rid.is_placeholder() {
+                true => rid.table(),
+                false => rid.to_string(),
+            };
+    
+            trans = trans.push(&format!("CREATE {create} CONTENT {contents} RETURN `id`"));
+        }
+
+        let results = trans.run().await?;
+
+        let mut ids = vec![];
+        for mut reply in results.replies {
+            ids.push( reply.parse_one::<RecordId>() )
+        }
+        Ok(ids)
+    }
 }
 
 //
@@ -243,5 +269,5 @@ fn obj_to_contents( fields: &Map<String, Value> ) -> String {
         .collect::<Vec<String>>()
         .join(", ");
 
-    format!("{{{}}}", val)
+    format!("{{{val}}}")
 }
