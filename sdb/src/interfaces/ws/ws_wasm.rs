@@ -1,7 +1,7 @@
-use futures::{SinkExt, StreamExt};
-use gloo_net::websocket::{futures::WebSocket, Message};
-use serde_json::from_str;
-use std::fmt::Debug;
+use ::futures::{SinkExt, StreamExt};
+use ::gloo_net::websocket::{futures::WebSocket, Message};
+use ::serde_json::from_str;
+use ::std::fmt::Debug;
 
 // use wasm_sockets::{Message, ConnectionStatus, PollingClient};
 

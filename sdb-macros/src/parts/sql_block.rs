@@ -1,28 +1,25 @@
-use std::fmt::{Debug, Formatter, Result as FmtResult};
+use ::std::fmt::{Debug, Formatter, Result as FmtResult};
+use ::proc_macro2::TokenStream;
+use ::proc_macro_error::{emit_error, emit_warning};
+use ::quote::{quote, ToTokens};
+use ::syn::{parse::*, LitStr, Token};
 
-use proc_macro2::{TokenStream, Span};
-use proc_macro_error::{emit_error, emit_warning};
-use quote::{quote, ToTokens};
-use syn::{parse::*, LitStr, Token, token::Paren, parenthesized};
+use super::QuerySugar;
 
-use super::QueryMethod;
-
-// use crate::sql::queries::*;
-
-pub struct QuerySqlBlock {
+pub(crate) struct QuerySqlBlock {
     pub literal: LitStr,
-    pub methods: Vec<QueryMethod>,
+    pub sugars: Vec<QuerySugar>,
 }
 
 impl Parse for QuerySqlBlock {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut me = Self {
             literal: input.parse()?,
-            methods: Vec::new(),
+            sugars: Vec::new(),
         };
 
         while input.peek(Token![.]) {
-            me.methods.push(input.parse::<QueryMethod>()?)
+            me.sugars.push(input.parse::<QuerySugar>()?)
         }
 
         me.check();
@@ -42,7 +39,7 @@ impl ToTokens for QuerySqlBlock {
 impl Debug for QuerySqlBlock {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("QuerySqlBlock")
-            .field("methods", &self.methods)
+            .field("methods", &self.sugars)
             .field("sql", &self.literal)
             .finish()
     }
@@ -57,7 +54,7 @@ impl QuerySqlBlock {
 
         if sql_str.contains("--") {
             emit_warning!( sql_span, "Queries shouldn't contain comments";
-                help = "Remove doube minuses (--) from you query.\nIf you need to put comments here, put them in the macro using //"
+                help = "Remove doube minuses (--) from you query.\nComments make the syntax checker get all fucky wucky"
             )
         }
 
@@ -70,12 +67,12 @@ impl QuerySqlBlock {
         )
     }
 
-    pub(crate) fn build_methods(&self, mut sql: String) -> Option<String> {
-        if self.methods.len() == 0 {
+    pub(crate) fn build_sugar(&self, mut sql: String) -> Option<String> {
+        if self.sugars.len() == 0 {
             return None
         }
 
-        for method in &self.methods {
+        for method in &self.sugars {
             method.apply_method_sql(&mut sql)
         }
         
@@ -83,9 +80,9 @@ impl QuerySqlBlock {
     }
 
     pub fn complete_sql(&self) -> String {
-        let mut sql = self.literal.value();
+        let sql = self.literal.value();
 
-        match self.build_methods(sql) {
+        match self.build_sugar(sql) {
             Some(full_sql) => full_sql,
             None => self.literal.value(),
         }

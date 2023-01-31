@@ -41,14 +41,16 @@ pub fn brackets_are_balanced(sql: &str) -> Result<Vec<(usize, usize)>, (usize, u
             Bracket::Open(_, _) => {
                 stack.push(brack);
             },
-            Bracket::Close(ch, right_idx) if let Some(left) = stack.pop() => {
-                if ! left.matches(ch) {
-                    return Err( (left.pos(), right_idx)  )
+            Bracket::Close(ch, right_idx) => {
+                if let Some(left) = stack.pop() {
+                    if ! left.matches(ch) {
+                        return Err( (left.pos(), right_idx)  )
+                    }
+                    regions.push((left.pos(), right_idx))
                 }
-                regions.push((left.pos(), right_idx))
-            }
-            Bracket::Close(_, right_idx) => {
-                return Err( (0, right_idx) )
+                else {
+                    return Err( (0, right_idx) )
+                }
             }
         }
     }

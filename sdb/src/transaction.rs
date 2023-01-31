@@ -1,6 +1,6 @@
-use serde::{Serialize, Deserialize};
+use ::serde::{Serialize, Deserialize};
 
-use crate::{client::SurrealClient, error::*, reply::TransactionReply};
+use crate::{client::SurrealClient, error::*, reply::QueryReply};
 
 pub struct TransQuery {
     pub(crate) sql: String,
@@ -192,7 +192,7 @@ impl TransactionBuilder {
     }
 
     /// Executes the transaction and returns the results
-    pub async fn run(self) -> SdbResult<TransactionReply> {
+    pub async fn run(self) -> SdbResult<QueryReply> {
         let mut client = self.client.clone();
         client.query(self).await
     }

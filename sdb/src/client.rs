@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
-use serde_json::{Map, Value};
+use ::std::sync::{Arc, Mutex, RwLock, RwLockReadGuard};
+use ::serde_json::{Map, Value};
 
 use crate::prelude::*;
  
@@ -58,7 +58,7 @@ impl SurrealClient {
     }
 
     /// Execute a Transaction and return the server's reply
-    pub async fn query(&mut self, trans: TransactionBuilder) -> SdbResult<TransactionReply> {
+    pub async fn query(&mut self, trans: TransactionBuilder) -> SdbResult<QueryReply> {
         let (queries, sqls) = trans.queries();
         let full_sql = sqls.join(";\n\t");
 
@@ -75,7 +75,7 @@ impl SurrealClient {
                 panic!("Surreal Responded with an error\n{error:#?}\n");
             }
             SurrealResponse::Result { result, .. } => match result {
-                Some(res) => Ok(TransactionReply::new(queries, res)),
+                Some(res) => Ok(QueryReply::new(queries, res)),
                 None => {
                     println!("~ ~\n{result:?}\n");
                     panic!()
@@ -103,7 +103,7 @@ impl SurrealClient {
     /// perform the verification automatically, so using this is optional, but recomended
     /// 
     /// TODO: parse better
-    pub async fn handshake<'a>(&'a mut self) -> SdbResult<TransactionReply> {
+    pub async fn handshake<'a>(&'a mut self) -> SdbResult<QueryReply> {
         // let mut lock = self.inner.socket.lock().unwrap();
         // let info = &self.server();
         // lock.ensure_connected(&info).await?;
@@ -140,7 +140,7 @@ impl SurrealClient {
     }
 
     /// Change which authentication credentials and verifies the server accepts them
-    pub async fn change_auth(&mut self, new_auth: Option<Credentials>) -> SdbResult<TransactionReply> {
+    pub async fn change_auth(&mut self, new_auth: Option<Credentials>) -> SdbResult<QueryReply> {
         let mut new_server = self.server().clone();
         new_server.auth = new_auth;
         self.inner.change_server(new_server);
@@ -153,7 +153,7 @@ impl SurrealClient {
     }
 
     /// Update a single record, using the corresponding record struct.
-    pub async fn update<R>(&mut self, mode: UpdateMode, record: &R) -> SdbResult<TransactionReply>
+    pub async fn update<R>(&mut self, mode: UpdateMode, record: &R) -> SdbResult<QueryReply>
     where
         R: SurrealRecord
     {

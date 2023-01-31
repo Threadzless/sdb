@@ -1,8 +1,10 @@
-use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{parse::*, punctuated::Punctuated, token::*, Type, *};
+#[cfg(feature = "unstable")]
+use ::proc_macro::MultiSpan;
+use ::proc_macro2::{TokenStream, Span};
+use ::quote::{quote, ToTokens, spanned::Spanned};
+use ::syn::{parse::*, punctuated::Punctuated, token::*, Type, *};
 
-use proc_macro_error::{__export::*, abort};
+use ::proc_macro_error::abort;
 
 //
 //
@@ -11,7 +13,7 @@ use proc_macro_error::{__export::*, abort};
 const ERROR_HELP: &str = r#"Only types which implement serde::Deserialise are valid here. "#;
 
 #[derive(Debug)]
-pub enum QueryResultType {
+pub(crate) enum QueryResultType {
     Option(TypePath),
     Single(TypePath),
     Vec(TypePath),
@@ -23,6 +25,14 @@ impl QueryResultType {
             Self::Option(ty) => quote!(next_opt::< #ty >()),
             Self::Single(ty) => quote!(next_one::< #ty >()),
             Self::Vec(ty) => quote!(next_vec::< #ty >()),
+        }
+    }
+
+    pub fn span(&self) -> Span {
+        match &self {
+            QueryResultType::Option(ty) => ty.__span(),
+            QueryResultType::Single(ty) => ty.__span(),
+            QueryResultType::Vec(ty) => ty.__span(),
         }
     }
 }
@@ -114,7 +124,9 @@ fn value_ty_path(inf: &TypeInfer) -> TypePath {
     TypePath {
         qself: None,
         path: Path {
-            leading_colon: None,
+            leading_colon: Some( Colon2 { 
+                spans: [ span.clone(), span ] 
+            } ),
             segments,
         },
     }

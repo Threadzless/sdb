@@ -3,18 +3,18 @@ use serde_json::{from_value, Value};
 
 use crate::{error::*, transaction::TransQuery};
 
-use super::QueryReply;
+use super::StatementResult;
 
 /// The result of one entire SurrealDB transaction. Queries are grouped into
 /// transactions, even if you only use one.
-pub struct TransactionReply {
+pub struct QueryReply {
     pub(crate) index: usize,
     pub(crate) queries: Vec<TransQuery>,
-    pub(crate) replies: Vec<QueryReply>,
+    pub(crate) replies: Vec<StatementResult>,
 }
 
-impl TransactionReply {
-    pub(crate) fn new(queries: Vec<TransQuery>, mut replies: Vec<QueryReply>) -> Self {
+impl QueryReply {
+    pub(crate) fn new(queries: Vec<TransQuery>, mut replies: Vec<StatementResult>) -> Self {
         let mut idx = 0;
         for q in queries.iter() {
             replies.get_mut(idx).unwrap().query = Some(q.sql.clone());
@@ -28,7 +28,7 @@ impl TransactionReply {
         }
     }
 
-    pub fn next_result<'a>(&'a mut self) -> &'a mut QueryReply {
+    pub fn next_result<'a>(&'a mut self) -> &'a mut StatementResult {
         while let Some( line ) = self.queries.get( self.index ) && line.skip {
             self.index += 1;
         }

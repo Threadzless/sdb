@@ -1,19 +1,15 @@
-#![feature(let_chains, if_let_guard, box_patterns, async_closure)]
-#![feature(proc_macro_diagnostic)]
-#![feature(proc_macro_span_shrink)]
-#![feature(proc_macro_span)]
-#![allow(unused)]
+#![feature(let_chains)]
+#![feature(if_let_guard)]
+#![feature(box_patterns)]
 
-use proc_macro::TokenStream as TokenStreamOld;
-use proc_macro2::{Span, TokenStream};
-use proc_macro_error::*;
-use quote::{quote, ToTokens};
-use syn::*;
 
-// mod sql;
+use ::proc_macro::TokenStream as TokenStreamOld;
+use ::proc_macro2::{Span, TokenStream};
+use ::proc_macro_error::*;
+use ::quote::{quote, ToTokens};
+use ::syn::*;
 
 mod parts;
-// #[cfg(feature = "query-test")]
 mod tester;
 
 use parts::*;
@@ -78,33 +74,53 @@ use parts::*;
 #[proc_macro_error]
 #[proc_macro]
 pub fn query(input: TokenStreamOld) -> TokenStreamOld {
-    let query_func = parse_macro_input!(input as TransactionParse);
+    let query_func = parse_macro_input!(input as QueryParse);
 
     if let Err( err ) = tester::check_syntax(&query_func) {
         err.emit();
-        panic!("Found nothing");
     }
-
 
     let client = &query_func.client;
     let trans = Ident::new("db_trans", Span::call_site());
     let (push_steps, unpack, result_act) = query_func.prepare(&trans);
     let arg_steps = query_func.arg_steps();
 
-    let out_base = quote!(
-        #client . transaction()
-            #arg_steps
-            #push_steps
-            .run()
-            .await #result_act
-    );
+    let out = match (
+        query_func.get_tail(), 
+        unpack.is_empty()
+    ) {
+        (Some( tail ), _) => {
+            let SdbStatement::ParseTail { ref path, .. } = tail else { unreachable!() };
+            let run = tail.get_runner();
+            quote!(
+                {
+                    let result: ::sdb::prelude::SdbResult<#path> = #client
+                        . transaction()
+                        #arg_steps
+                        #push_steps
+                        #run
+                        .await;
 
-    let out = match query_func.has_trailing() {
-        true => quote!( #out_base. #unpack ),
-        false => quote!(
-            let mut #trans = #out_base;
+                    result
+                }
+            )
+        },
+        (None, true) => quote!{
+            #client . transaction()
+                #arg_steps
+                #push_steps
+                .run()
+                .await
+        },
+        (None, false) => quote!{    
+            let mut #trans = #client . transaction()
+                #arg_steps
+                #push_steps
+                .run()
+                .await #result_act;
+
             #unpack
-        ),
+        }
     };
 
     #[cfg(feature = "macro-print")]
@@ -116,7 +132,29 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 
 //
 
-///
+/// Insert multiple records into the database
+/// 
+/// ### Example
+/// ```rust
+/// # use sdb::prelude::*;
+/// #
+/// # tokio_test::block_on( async {
+/// #     test_main().await.unwrap();
+/// # });
+/// # async fn test_main() -> SdbResult<()> {
+/// let client = SurrealClient::demo();
+/// 
+/// let inserted_record_ids = sdb::insert!(
+///     client => authors (id, name) => [
+///         ("philip_p", "Philip Pullman"),
+///         ("susanna_c", "Susanna Clarke"),
+///         ("george_rrm", "George R. R. Martin"),
+///         ("leo_t", "Leo Tolstoy"),
+///         ("charles_d", "Charles Dickens")
+///     ]
+/// )
+/// 
+/// ```
 #[proc_macro_error]
 #[proc_macro]
 pub fn insert(input: TokenStreamOld) -> TokenStreamOld {
@@ -137,8 +175,6 @@ pub fn insert(input: TokenStreamOld) -> TokenStreamOld {
             let mut sql = format!("INSERT INTO {} {} VALUES\n", #table_name, #fields);
         }
     };
-
-    let rows = &insert.values;
 
     for (i, row) in insert.values.rows.iter().enumerate() {
         if row.elems.len() != field_count {
@@ -164,31 +200,27 @@ pub fn insert(input: TokenStreamOld) -> TokenStreamOld {
         });
     }
 
-    let out = quote!{
-        {
+    let out = match insert.ret {
+        Some(ret) => {
+            let tail = format!("RETURN {}", ret.expected);
+            quote!{ {
+                #out
+                sql.push_str( #tail );
+                #client . transaction()
+                    .push( &sql )
+                    .run_parse_vec()
+                    .await
+            } }
+        },
+        None => quote!{ {
             #out
-            sql.push_str("RETURN id");
+            sql.push_str("RETURN NONE");
             #client . transaction()
-                .push( &sql )
-                .run()
-                .await
-        }
+            .push( &sql )
+            .run()
+            .await
+        } }
     };
-    
-    // if insert.ignore.is_some() {
-    //     out.extend(quote!{ })
-    // }
-    // else {
-    //     out.extend(quote!{
-    //         let mut sql = String::new("INSERT INTO ") 
-    //     })
-    // }
-    //     #client . transaction()
-    //         #arg_steps
-    //         #push_steps
-    //         .run()
-    //         .await #result_act
-    // };
 
     #[cfg(feature = "macro-print")]
     println!("\n{out}\n");

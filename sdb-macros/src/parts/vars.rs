@@ -2,11 +2,11 @@ use syn::{parse::*, punctuated::Punctuated, *};
 
 // use super::*;
 
-pub struct TransactionVars {
+pub(crate) struct TransactionVars {
     pub _paren: token::Paren,
-    pub client: Ident,
+    pub _client: Ident,
     pub _comma: Option<Token![,]>,
-    pub fields: Punctuated<Expr, Token![,]>,
+    pub _fields: Punctuated<Expr, Token![,]>,
 }
 
 impl TransactionVars {}
@@ -16,9 +16,9 @@ impl Parse for TransactionVars {
         let p_input;
         Ok(Self {
             _paren: parenthesized!(p_input in input),
-            client: p_input.parse()?,
+            _client: p_input.parse()?,
             _comma: p_input.parse()?,
-            fields: p_input.parse_terminated(Expr::parse)?,
+            _fields: p_input.parse_terminated(Expr::parse)?,
         })
     }
 }

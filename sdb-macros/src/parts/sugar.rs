@@ -12,14 +12,14 @@ const UNKNOWN_METHOD_HELP: &str = r#"Valid Query Sugar™s:
 "#;
 
 #[derive(Debug)]
-pub struct QueryMethod {
+pub(crate) struct QuerySugar {
     _dot: Token![.],
     ident: Ident,
     _paren: token::Paren,
     args: Punctuated<QuerySugarArg, Token![,]>,
 }
 
-impl Parse for QueryMethod {
+impl Parse for QuerySugar {
     fn parse(input: ParseStream) -> Result<Self> {
         let context;
         Ok(Self {
@@ -31,7 +31,7 @@ impl Parse for QueryMethod {
     }
 }
 
-impl CustomToken for QueryMethod {
+impl CustomToken for QuerySugar {
     fn peek(cursor: buffer::Cursor) -> bool {
         let cur = match cursor.punct() {
             Some((punct, cur)) if punct.as_char().eq(&'.') => cur,
@@ -48,7 +48,7 @@ impl CustomToken for QueryMethod {
     }
 }
 
-impl QueryMethod {
+impl QuerySugar {
     pub fn name(&self) -> String {
         self.ident.to_token_stream().to_string()
     }
@@ -105,7 +105,7 @@ impl QueryMethod {
     }
 }
 
-fn quote_ids(method: &QueryMethod, sql: &mut String) {
+fn quote_ids(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         0 => format!("SELECT * FROM (SELECT type::string( `id` ) AS id FROM ({sql}))"),
 
@@ -118,7 +118,7 @@ fn quote_ids(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_shuffle(method: &QueryMethod, sql: &mut String) {
+fn quote_shuffle(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         0 => format!("SELECT * FROM ({sql}) ORDER BY rand()"),
 
@@ -136,7 +136,7 @@ fn quote_shuffle(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_pluck(method: &QueryMethod, sql: &mut String) {
+fn quote_pluck(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         1 if let Some( field_name ) = method.arg_str(0) => {
             format!("SELECT * FROM (SELECT {field_name} FROM ({sql}))")
@@ -158,7 +158,7 @@ fn quote_pluck(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_limit(method: &QueryMethod, sql: &mut String) {
+fn quote_limit(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         1 if let Some( limit ) = method.arg_usize(0) && limit > 0 => {
             format!("SELECT * FROM ({sql}) LIMIT {limit}")
@@ -180,7 +180,7 @@ fn quote_limit(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_count(method: &QueryMethod, sql: &mut String) {
+fn quote_count(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         0 => {
             format!("SELECT * FROM count(({sql}))")
@@ -199,7 +199,7 @@ fn quote_count(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_page(method: &QueryMethod, sql: &mut String) {
+fn quote_page(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         2 if let Some( size ) = method.arg_usize(0) && size > 0
         && let Some( page ) = method.arg_usize(1)  => {
@@ -217,7 +217,7 @@ fn quote_page(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_one(method: &QueryMethod, sql: &mut String) {
+fn quote_one(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         0 => {
             format!("SELECT * FROM ({sql}) LIMIT 1")
@@ -232,7 +232,7 @@ fn quote_one(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_product(method: &QueryMethod, sql: &mut String) {
+fn quote_product(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         1 if let Some( field ) = method.arg_str(0) => {
             let inner = format!("SELECT * FROM (SELECT `{field}` FROM ({sql}))");
@@ -248,7 +248,7 @@ fn quote_product(method: &QueryMethod, sql: &mut String) {
     }
 }
 
-fn quote_sum(method: &QueryMethod, sql: &mut String) {
+fn quote_sum(method: &QuerySugar, sql: &mut String) {
     *sql = match method.arg_count() {
         1 if let Some( field ) = method.arg_str(0) => {
             let inner = format!("SELECT * FROM (SELECT `{field}` FROM ({sql}))");

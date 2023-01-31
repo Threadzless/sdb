@@ -1,19 +1,19 @@
-use serde::{
+use ::std::time::Duration;
+use ::serde_json::Value;
+use ::serde::{
     de::{MapAccess, Visitor},
     Deserialize, Serialize,
 };
-use serde_json::Value;
-use std::time::Duration;
 
 #[derive(Debug, Serialize)]
-pub struct QueryReply {
+pub struct StatementResult {
     pub query: Option<String>,
     pub time: Duration,
     pub status: String,
     pub result: Value,
 }
 
-impl QueryReply {
+impl StatementResult {
     pub fn parse_vec<T: for<'de> Deserialize<'de>>(&mut self) -> Vec<T> {
         let res = self.result.clone();
         serde_json::from_value(res).unwrap()
@@ -50,7 +50,7 @@ impl QueryReply {
     }
 }
 
-impl<'de> Deserialize<'de> for QueryReply {
+impl<'de> Deserialize<'de> for StatementResult {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -62,7 +62,7 @@ impl<'de> Deserialize<'de> for QueryReply {
 struct QueryResultVisitor;
 
 impl<'de> Visitor<'de> for QueryResultVisitor {
-    type Value = QueryReply;
+    type Value = StatementResult;
 
     fn expecting(&self, _formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         _formatter.write_str("A Valid SurrealDB response")
@@ -99,7 +99,7 @@ impl<'de> Visitor<'de> for QueryResultVisitor {
         if let Some( time ) = time &&
         let Some( result ) = result &&
         let Some( status ) = status {
-            Ok(QueryReply {
+            Ok(StatementResult {
                 time,
                 result,
                 status,

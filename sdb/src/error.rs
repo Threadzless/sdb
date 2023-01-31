@@ -1,7 +1,7 @@
-use serde_json::Value;
+use ::std::fmt::{*, Result as FmtResult};
+use ::serde_json::Value;
 
-use crate::{client::SurrealResponseError, reply::QueryReply};
-use std::fmt::{*, Result as FmtResult};
+use crate::client::SurrealResponseError;
 
 pub type SdbResult<T> = std::result::Result<T, SdbError>;
 
@@ -125,7 +125,7 @@ impl Debug for SdbError {
 
 impl SdbError {
     #[inline]
-    pub(crate) fn parse_failure<T>(reply: &QueryReply, err: serde_json::Error) -> Self {
+    pub(crate) fn parse_failure<T>(reply: &crate::reply::StatementResult, err: serde_json::Error) -> Self {
         SdbError::QueryResultParseFailure {
             query: reply.query(),
             target_type: core::any::type_name::<T>().to_string(),

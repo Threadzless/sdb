@@ -1,7 +1,5 @@
-pub mod info;
-pub mod query;
-pub mod transaction;
+mod statement;
+mod transaction;
 
-pub use info::*;
-pub use query::*;
+pub use statement::*;
 pub use transaction::*;

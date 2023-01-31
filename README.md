@@ -53,6 +53,15 @@ sdb::doctest!{
         .build()
         .unwrap();
 
+    
+    // remove existing data
+    sdb::query!( client => {
+        "DELETE authors";
+        "DELETE books"; 
+    })
+
+    // insert data
+
 
     // Run a query
     let mut results = client.transaction()

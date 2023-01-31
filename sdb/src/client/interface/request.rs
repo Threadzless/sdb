@@ -1,7 +1,7 @@
-use serde::Serialize;
-use serde_json::{Map, Value};
+use ::serde::Serialize;
+use ::serde_json::{Map, Value};
 
-use crate::prelude::*;
+use crate::client::{RequestMethod, Credentials, ServerInfo};
 
 #[derive(Serialize)]
 pub struct SurrealRequest {

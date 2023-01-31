@@ -46,3 +46,5 @@ macro-print = [ ]
 query-test = [
     "reqwest",
 ]
+# Makes use of unstable macro features to handle error highlighting better
+unstable = []

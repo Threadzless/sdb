@@ -1,10 +1,12 @@
+// use ::proc_macro::MultiSpan;
+use ::proc_macro2::TokenStream;
 // use proc_macro2::TokenStream;
-// use quote::{quote, ToTokens};
-use syn::{parse::*, token::*, *};
+use ::quote::{quote, ToTokens};
+use ::syn::{parse::*, token::*, *};
 
 use crate::parts::*;
 
-pub enum SdbStatement {
+pub(crate) enum SdbStatement {
     Import {
         source: ExprBlock,
         _arrow: Token![=>],
@@ -34,19 +36,6 @@ pub enum SdbStatement {
         path: QueryResultType,
     },
 }
-
-// impl UniversalLine {
-//     #[deprecated]
-//     pub fn get_sql( &self ) -> Option<&QuerySqlBlock> {
-//         match self {
-//             UniversalLine::Import { .. } => None,
-//             UniversalLine::Ignored { sql } => Some( sql ),
-//             UniversalLine::ToVar { sql, .. } => Some( sql ),
-//             UniversalLine::Parse { sql, .. } => Some( sql ),
-//             UniversalLine::ParseTail { sql, .. } => Some( sql ),
-//         }
-//     }
-// }
 
 impl Parse for SdbStatement {
     fn parse(input: ParseStream) -> Result<Self> {
@@ -93,6 +82,90 @@ impl Parse for SdbStatement {
         }
     }
 }
+
+impl SdbStatement {
+    pub(crate) fn get_runner(&self) -> TokenStream {
+        let SdbStatement::ParseTail { path, .. } = self else {
+            unreachable!("get_runner called on a non-tail statement")
+        };
+
+        match path {
+            QueryResultType::Option(ty) => quote!{
+                . run_parse_opt::<#ty>()
+            },
+            QueryResultType::Single(ty) =>quote!{
+                . run_parse_one::<#ty>()
+            },
+            QueryResultType::Vec(ty) => quote!{
+                . run_parse_vec::<#ty>()
+            },
+        }
+    }
+}
+
+impl ToTokens for SdbStatement {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        let stream = match self {
+            SdbStatement::Import { source, _arrow, _dollar, var_name } => quote!{
+                #source #_arrow #_dollar #var_name
+            },
+            SdbStatement::ToVar { sql, _arrow, _dollar, var_name } => quote!{
+                #sql #_arrow #_dollar #var_name   
+            },
+            SdbStatement::Ignored { sql } => {
+                return sql.to_tokens(tokens);
+            }
+            SdbStatement::Parse { sql, _arrow, is_mut, store, _colon, path } => quote!{
+                #sql #_arrow #is_mut #store #_colon #path
+            },
+            SdbStatement::ParseTail { sql, _as, path } => quote!{
+                #sql #_as #path
+            },
+        };
+
+        tokens.extend(stream)
+    }
+}
+
+impl From<&SdbStatement> for proc_macro2::Span {
+    fn from(value: &SdbStatement) -> Self {
+        match value {
+            SdbStatement::Parse { sql, path, .. } |
+            SdbStatement::ParseTail { sql, path, .. } => {
+                sql.literal.span()
+                    .join( path.span() )
+                    .unwrap_or( sql.literal.span() )
+            },
+            SdbStatement::ToVar { sql, var_name, .. } => {
+                sql.literal.span()
+                    .join( var_name.span() )
+                    .unwrap_or( sql.literal.span() )
+            },
+            SdbStatement::Ignored { sql } => {
+                sql.literal.span()
+            },
+            SdbStatement::Import { source, var_name, .. } => {
+                source.block.brace_token.span
+                    .join( var_name.span() )
+                    .unwrap_or( source.block.brace_token.span )
+            }
+        }
+    }
+}
+
+// impl MultiSpan for &SdbStatement {
+//     fn into_spans(self) -> Vec<proc_macro::Span> {
+//         match self {
+//             SdbStatement::ParseTail { sql, path, .. } => {
+//                 let span = sql.literal.span()
+//                     .join( path.span() )
+//                     .unwrap_or( sql.literal.span() );
+//                 vec![ span.unwrap() ]
+//             },
+//             _ => todo!("SdbStatement::span")
+//         }
+//     }
+// }
 
 // impl ToTokens for UniQueryLine {
 //     fn to_tokens(&self, tokens: &mut TokenStream) {

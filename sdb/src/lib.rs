@@ -1,6 +1,7 @@
 #![feature(let_chains, if_let_guard)]
 
-pub use sdb_macros::*;
+pub use ::sdb_macros::*;
+pub use ::serde_json::Value;
 
 mod client;
 mod interfaces;
@@ -23,7 +24,7 @@ pub mod prelude {
         error::{SdbError, SdbResult},
         protocol::Protocol,
         record::*,
-        reply::TransactionReply,
+        reply::QueryReply,
         server_info::ServerInfo,
         transaction::TransactionBuilder,
     };
@@ -32,7 +33,7 @@ pub mod prelude {
 
 #[doc = include_str!("../../README.md")]
 #[allow(unused)]
-pub struct ReadMe { }
+struct ReadMe { }
 
 
 /// A little helper for de-cluttering the examples code in [README.md](README.md)

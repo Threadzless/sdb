@@ -1,45 +1,28 @@
-use std::ops::Range;
-
-use proc_macro::Literal;
-use proc_macro2::Span;
-use proc_macro_error::*;
-use quote::ToTokens;
-use regex::Regex;
-
+use ::proc_macro_error::*;
+use ::quote::ToTokens;
+use ::regex::Regex;
+use ::syn::LitStr;
 
 mod bracketer;
 mod pointer;
 
-pub use bracketer::*;
-pub use pointer::*;
-use syn::LitStr;
+pub(crate) use bracketer::*;
+pub(crate) use pointer::*;
 
-use crate::parts::TransactionParse;
+use crate::parts::QueryParse;
 
 const VAR_FINDER_REGEX: &str = r"\$([[:alnum:]_]+)\b";
 
-pub struct SqlStatement<'a> {
-    literal: LitStr,
-    sql: String,
-    sections: Vec<SqlSection<'a>>,
-}
-
-pub struct SqlSection<'a> {
-    pub literal: &'a LitStr,
-    pub range: Range<usize>,
-    pub text: String,
-}
-
 /// Perform SurrealQL syntax checking without sending it to the server. this should cover
 /// basic stuff like non-marching parenthesies,
-pub fn check(trans: &TransactionParse) -> Result<(), Diagnostic> {
+pub(crate) fn check(trans: &QueryParse) -> Result<(), Diagnostic> {
     let vars = trans.arg_vars();
-    let queries = trans.full_queries() ;
+    let queries = trans.full_queries();
     for (lit, sql) in queries {
         check_trans_vars(&vars, &sql, lit)?;
 
-        let regions = check_brackets_match(&sql, lit)?;
-        let parts = query_parts(&sql, regions);
+        let regions = check_brackets_match(&lit.value(), lit)?;
+        let parts = query_parts(&lit.value(), regions);
 
         check_clause_ordering(&sql, &lit, &parts)?;
     }
@@ -59,7 +42,6 @@ fn check_trans_vars(vars: &[(String, usize)], sql: &str, lit: &LitStr) -> Result
         let var_start = sql.find(use_name).unwrap();
         let sql_ptr = SqlErrorPointer::new(sql).tick(var_start - 1, use_name.len() + 1);
 
-        panic!();
         emit_error!(
             lit, "Transaction variable used before defined";
             help = "Query variable `${}` isn't defined before it is used.{:?}", use_name, sql_ptr;
@@ -76,7 +58,7 @@ fn check_trans_vars(vars: &[(String, usize)], sql: &str, lit: &LitStr) -> Result
 /// ```rust,no_test
 /// [ "Let $c = ()",  "SELECT * FROM ()",  "SELECT title FORM books" ];
 /// ```
-fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<String> {
+fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<(usize, String)> {
     let mut base_sql = String::from(sql);
 
     let len = sql.chars().count() - 1;
@@ -84,8 +66,19 @@ fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<String> {
     let mut parts = vec![];
 
     for (left, right) in regions {
-        let space = left..=right;
-        parts.push(base_sql[space.clone()].replace('\x00', ""));
+        let space = match left == 0 && right == sql.len() - 1{
+            true => left..right,
+            false => if left <= right {
+                continue;
+            }
+            else { 
+                (left+1)..(right-1)
+            },
+        };
+        parts.push((
+            left,
+            base_sql[space.clone()].to_owned()
+        ));
 
         base_sql = base_sql
             .chars()
@@ -97,6 +90,7 @@ fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<String> {
             .collect::<String>();
     }
 
+    println!("MACRO PARTS: {sql}\n{parts:#?}");
     parts
 }
 
@@ -104,11 +98,13 @@ fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<String> {
 
 //
 
-fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Result<(), Diagnostic> {
-    for part in parts.iter() {
+fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<(usize, String)>) -> Result<(), Diagnostic> {
+    println!("Checking clause order for:\n  {_sql}\n  {}\n", lit.value());
+
+    for (offset, part) in parts.iter() {
         if part.starts_with("SELECT") {
             check_clause_order(
-                lit, part, &parts,
+                lit, part, *offset,
                 "SELECT",
                 &["FROM", "WHERE", "SPLIT", "GROUP", "ORDER", "LIMIT", "START", "FETCH", "TIMEOUT", "PARALLEL" ],
                 &["RETURN"],
@@ -117,7 +113,7 @@ fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Resul
         }
         else if part.starts_with("UPDATE") {
             check_clause_order(
-                lit, part, &parts,
+                lit, part, *offset,
                 "UPDATE", 
                 &["CONTENT", "MERGE", "PATCH", "SET", "WHERE", "RETURN", "TIMEOUT", "PARALLEL"],
                 &["FROM", "SPLIT", "GROUP", "ORDER", "LIMIT", "START", "FETCH"],
@@ -126,7 +122,7 @@ fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Resul
         }
         else if part.starts_with("RELATE") {
             check_clause_order(
-                lit, part, &parts,
+                lit, part, *offset,
                 "RELATE", 
                 &["CONTENT", "SET", "WHERE", "RETURN", "TIMEOUT", "PARALLEL"],
                 &["FROM", "SPLIT", "GROUP", "ORDER", "LIMIT", "START", "FETCH"],
@@ -135,7 +131,7 @@ fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Resul
         }
         else if part.starts_with("DELETE") {
             check_clause_order(
-                lit, part, &parts,
+                lit, part, *offset,
                 "DELETE", 
                 &["WHERE", "RETURN", "TIMEOUT", "PARALLEL"],
                 &["FROM", "SPLIT", "GROUP", "ORDER", "LIMIT", "START", "FETCH"],
@@ -156,7 +152,7 @@ fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<String>) -> Resul
 fn check_clause_order(
     lit: &LitStr,
     part: &str,
-    parts: &Vec<String>,
+    part_offset: usize,
     kind: &str,
     clauses: &[&str],
     not_clauses: &[&str],
@@ -165,27 +161,21 @@ fn check_clause_order(
     let mut last_name = kind;
     let mut last_index = 0;
 
+    println!("CCO:  {part_offset:4} {part}");
+
     for clause in clauses.iter() {
         match part.find(clause) {
             Some( now_idx ) if now_idx < last_index => {
-                // let mut l = Literal::string(&lit.value());
-                // l.set_span(lit.span().unwrap());
-
-                // let now = now_idx + 1;
-                // let span = l.subspan(now..now+clause.len())
-                //     .unwrap_or( lit.span().unwrap() );
-                // let other = last_index + 1;
-                // let other = l.subspan(other..other+last_name.len())
-                //     .unwrap_or( lit.span().unwrap() );
+                println!("ERR:OFFSET {}", part_offset);
                 return Err(
                     Diagnostic::spanned(
-                        span_range(lit, now_idx, clause.len()),
+                        span_range(lit, now_idx + part_offset, clause.len()),
                         Level::Error,
                         format!("{kind} statement clauses out of order")
                     )
                     .help(format!("`{}` clause must come after `{}` clause", clause, last_name))
                     .span_note(
-                        span_range(lit, last_index, last_name.len()),
+                        span_range(lit, last_index + part_offset, last_name.len()),
                         format!("The `{}` clause", last_name)
                     )
                     .note( kind_syntax.to_string() )
@@ -200,26 +190,24 @@ fn check_clause_order(
     }
 
     for kw in not_clauses.iter() {
-        if part.contains(kw) {
+        let start = part.find(kw);
+        if start.is_some() {
+            let start = start.unwrap();
+
             return Err(
                 Diagnostic::spanned(
-                    lit.span().into(),
-                    Level::Error,
-                    format!("UPDATE query doesn't support `{kw}` clauses")
+                    span_range(lit, start, kw.len()), Level::Error,
+                    format!("UPDATE statement doesn't support `{kw}` clauses")
                 )
-                .help(format!("`{}` clause doesn't apply to UPDATE queries", kw))
+                .help(format!("`{kw}` clause doesn't apply to {kind} statements"))
             )
-            // emit_error!(
-            //     lit, "UPDATE query doesn't support that clause";
-            //     help = "`{}` clause doesn't apply to UPDATE queries", kw;
-            // );
         }
     }
 
     Ok( () )
 }
 
-fn span_range( lit: &LitStr, start: usize, width: usize ) -> proc_macro2::Span {
+pub(crate) fn span_range( lit: &LitStr, start: usize, width: usize ) -> proc_macro2::Span {
     let offset = 1 + lit.to_token_stream()
         .to_string()
         .find('"')
@@ -233,85 +221,13 @@ fn span_range( lit: &LitStr, start: usize, width: usize ) -> proc_macro2::Span {
     span
 }
 
-// // 
-// fn check_select_clause_order(part: &str, lit: &Span) -> Result<(), Diagnostic> {
-//     let mut last_name = "SELECT";
-//     let mut last_index = 0;
 
-//     for clause in &SELECT_CLAUSE_ORDER[1..] {
-//         let Some( now_idx ) = part.find(clause) else { continue };
-//         if now_idx < last_index {
-//             emit_error!(
-//                 lit, "SELECT statement clauses out of order";
-//                 help = "`{}` clause must come after `{}` clause", clause, last_name;
-//             );
-
-//             return Err(
-//                 Diagnostic::spanned(*lit, Level::Error, "SELECT statement clauses out of order".into())
-//                 .help(format!("`{}` clause must come after `{}` clause", clause, last_name))
-//             )
-//         }
-//         last_name = clause;
-//         last_index = now_idx;
-//     }
-
-//     Ok( () )
-// }
-
-
-// ///
-// fn check_update_clause_order(part: &str, lit: &Span) -> Result<(), Diagnostic> {
-//     let mut last_name = "UPDATE";
-//     let mut last_index = 0;
-    
-//     for clause in &UPDATE_CLAUSE_ORDER[1..] {
-//         let Some( now_idx ) = part.find(clause) else { continue };
-//         if now_idx < last_index {
-//             // emit_error!(
-//             //     lit, "UPDATE Clauses out of order";
-//             //     help = "`{}` clause must come after `{}` clause", clause, last_name;
-//             // );
-
-//             return Err(
-//                 Diagnostic::spanned(
-//                     *lit,
-//                     Level::Error,
-//                     "UPDATE Clauses out of order".into()
-//                 )
-//                 .help(format!("`{}` clause must come after `{}` clause", clause, last_name))
-//             )
-//         }
-//         last_name = clause;
-//         last_index = now_idx;
-//     }
-
-//     for kw in &["ORDER", "SPLIT", "GROUP"] {
-//         if part.contains(kw) {
-//             return Err(
-//                 Diagnostic::spanned(
-//                     *lit,
-//                     Level::Error,
-//                     format!("UPDATE query doesn't support `{kw}` clauses")
-//                 )
-//                 .help(format!("`{}` clause doesn't apply to UPDATE queries", kw))
-//             )
-//             // emit_error!(
-//             //     lit, "UPDATE query doesn't support that clause";
-//             //     help = "`{}` clause doesn't apply to UPDATE queries", kw;
-//             // );
-//         }
-//     }
-
-//     Ok( () )
-// }
 
 fn check_brackets_match(sql: &str, lit: &LitStr) -> Result<Vec<(usize, usize)>, Diagnostic> {
     match brackets_are_balanced(sql) {
         Ok(v) => Ok(v),
         Err((left, right)) => {
-            let mut l = Literal::string(lit.value().as_str());
-            l.set_span(lit.span().unwrap());
-            let highlight = l.subspan((left+1)..(right+1)).unwrap().into();
+            let highlight = span_range(lit, left, right - left);
             Err(
                 Diagnostic::spanned(
                     highlight,
@@ -378,28 +294,28 @@ DELETE @targets
     [ PARALLEL ]
 "#;
 
-const INSERT_SYNTAX: &str = r#"INSERT statement syntax:
-INSERT [ IGNORE ] INTO @what
-    [ @value
-        | (@fields) VALUES (@values)
-        [ ON DUPLICATE KEY UPDATE @field = @value ... ]
-    ]
-"#;
+// const INSERT_SYNTAX: &str = r#"INSERT statement syntax:
+// INSERT [ IGNORE ] INTO @what
+//     [ @value
+//         | (@fields) VALUES (@values)
+//         [ ON DUPLICATE KEY UPDATE @field = @value ... ]
+//     ]
+// "#;
 
-const CREATE_SYNTAX: &str = r#"CREATE statement syntax:
-CREATE @targets
-    [ CONTENT @value
-        | SET @field = @value ...
-    ]
-    [ RETURN [ NONE | BEFORE | AFTER | DIFF | @projections ... ]
-    [ TIMEOUT @duration ]
-    [ PARALLEL ]
-"#;
+// const CREATE_SYNTAX: &str = r#"CREATE statement syntax:
+// CREATE @targets
+//     [ CONTENT @value
+//         | SET @field = @value ...
+//     ]
+//     [ RETURN [ NONE | BEFORE | AFTER | DIFF | @projections ... ]
+//     [ TIMEOUT @duration ]
+//     [ PARALLEL ]
+// "#;
 
-const LET_SYNTAX: &str = r#"LET statement syntax:
-LET $@parameter = @value
-"#;
+// const LET_SYNTAX: &str = r#"LET statement syntax:
+// LET $@parameter = @value
+// "#;
 
-const USE_SYNTAX: &str = r#"USE statement syntax:
-USE [ NS @ns ] [ DB @db ];
-"#;
+// const USE_SYNTAX: &str = r#"USE statement syntax:
+// USE [ NS @ns ] [ DB @db ];
+// "#;

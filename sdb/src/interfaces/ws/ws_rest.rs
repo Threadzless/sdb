@@ -1,6 +1,5 @@
-use std::fmt::Debug;
-
-use websockets::{Frame, WebSocket, WebSocketBuilder, WebSocketError};
+use ::std::fmt::Debug;
+use ::websockets::{Frame, WebSocket, WebSocketBuilder, WebSocketError};
 
 use crate::{
     client::interface::*,

@@ -1,22 +1,28 @@
-// use proc_macro::TokenStream as TokenStreamOld;
-use proc_macro2::{TokenStream, Span};
-use quote::quote;
-use syn::{parse::*, punctuated::Punctuated, token::*, *};
+use ::proc_macro2::TokenStream;
+use ::proc_macro_error::emit_error;
+use ::quote::quote;
+use ::syn::{parse::*, punctuated::Punctuated, token::*, *};
 
-#[cfg(feature = "query-test")]
-use crate::tester;
-use crate::parts::*;
+use crate::parts::{SdbArgs, SdbStatement};
 
-pub struct TransactionParse {
+const STATEMENT_EXPL: &str = r#"sdb::query! macro supports either but not both:
+One or more assign statements:
+> "SELECT * FROM books LIMIT 5" => five_books: Vec<Book>;
+
+One tail statement, which must be the last one:
+> "SELECT * FROM books LIMIT 5" as Vec<Book>
+"#;
+
+pub(crate) struct QueryParse {
     pub async_tok: Option<Token!(!)>,
     pub client: Ident,
     pub args: Option<SdbArgs>,
     pub _arrow: FatArrow,
     pub _braces: Brace,
-    pub lines: Punctuated<SdbStatement, Token![;]>,
+    pub stmts: Punctuated<SdbStatement, Token![;]>,
 }
 
-impl Parse for TransactionParse {
+impl Parse for QueryParse {
     fn parse(input: ParseStream) -> Result<Self> {
         let context;
         let me = Self {
@@ -25,7 +31,7 @@ impl Parse for TransactionParse {
             args: input.parse()?,
             _arrow: input.parse()?,
             _braces: braced!(context in input),
-            lines: context.parse_terminated(SdbStatement::parse)?,
+            stmts: context.parse_terminated(SdbStatement::parse)?,
         };
 
         me.verify_formatting();
@@ -34,7 +40,7 @@ impl Parse for TransactionParse {
     }
 }
 
-impl TransactionParse {
+impl QueryParse {
     pub fn arg_steps(&self) -> TokenStream {
         match &self.args {
             Some(a) => a.field_assigns(),
@@ -43,20 +49,43 @@ impl TransactionParse {
     }
 
     pub fn verify_formatting(&self) {
-        let mut tail_count = 0;
-        let mut parse_count = 0;
-        for line in &self.lines {
+        let mut tail_stmt = Option::<&SdbStatement>::None;
+        let mut parse_stmt = Option::<&SdbStatement>::None;
+
+        for (idx, line) in self.stmts.iter().enumerate() {
             match line {
-                SdbStatement::Parse { .. } => parse_count += 1,
-                SdbStatement::ParseTail { .. } => tail_count += 1,
+                SdbStatement::Parse { .. } => {
+                    parse_stmt = Some( line )
+                },
+                SdbStatement::ParseTail { .. } => {
+                    if let Some(first) = tail_stmt {
+                        return emit_error!(
+                            line, "Macro must only have one parsed statement";
+                            help = first => "First parsed statement"
+                        );
+                    }
+                    else if idx != self.stmts.len() - 1 { // tail must be the last one
+                        emit_error!(
+                            line, "Tail Statement must be at the end of the macro";
+                            help = "{}", STATEMENT_EXPL;
+                        );
+                    }
+                    else {
+                        tail_stmt = Some( line )
+                    }
+                },
                 _ => continue,
             }
         }
 
-        if tail_count > 0 && parse_count > 0 {
-            // emit_error!(
-
-            // )
+        if tail_stmt.is_some() && parse_stmt.is_some() {
+            let tail = tail_stmt.unwrap();
+            let parse = parse_stmt.unwrap();
+            emit_error!(
+                parse, "Macro doesn't support using assign and tail statements together";
+                help = tail => "Tail statement";
+                help = "{}", STATEMENT_EXPL;
+            );
         }
     }
 
@@ -69,7 +98,7 @@ impl TransactionParse {
         let mut unpack = TokenStream::new();
         let mut push_steps = TokenStream::new();
 
-        for line in &self.lines {
+        for line in &self.stmts {
             use SdbStatement as Ul;
             match line {
                 Ul::Import {
@@ -78,11 +107,10 @@ impl TransactionParse {
                     var_name,
                     ..
                 } => {
-                    let span = var_name
-                        .span()
-                        .join(_dollar.span)
-                        .unwrap_or(var_name.span());
-                    let var_str = LitStr::new(var_name.to_string().as_str(), span);
+                    let var_str = LitStr::new(
+                        &var_name.to_string(), 
+                        var_name.span()
+                    );
                     push_steps.extend(quote!( .push_var( #var_str, ( #source ) ) ))
                 }
 
@@ -92,11 +120,10 @@ impl TransactionParse {
                     var_name,
                     ..
                 } => {
-                    let span = var_name
-                        .span()
-                        .join(_dollar.span)
-                        .unwrap_or(var_name.span());
-                    let var_str = LitStr::new(var_name.to_string().as_str(), span);
+                    let var_str = LitStr::new(
+                        &var_name.to_string(), 
+                        var_name.span()
+                    );
                     push_steps.extend(quote!( .query_to_var( #var_str, #sql ) ))
                 }
 
@@ -120,7 +147,7 @@ impl TransactionParse {
                     push_steps.extend(quote!( .push( #sql ) ));
                     let call = path.call_next();
 
-                    unpack = quote! { #call #result_handle };
+                    unpack = quote! { #call };
                 }
             }
         }
@@ -128,11 +155,13 @@ impl TransactionParse {
         (push_steps, unpack, result_handle)
     }
 
-    pub fn has_trailing(&self) -> bool {
-        self.lines.iter().any(|l| match l {
-            SdbStatement::ParseTail { .. } => true,
-            _ => false,
-        })
+    pub fn get_tail(&self) -> Option<&'_ SdbStatement> {
+        for line in self.stmts.iter() {
+            if let SdbStatement::ParseTail { .. } = line {
+                return Some( line )
+            }
+        }
+        None
     }
 
     pub fn arg_vars(&self) -> Vec<(String, usize)> {
@@ -147,7 +176,7 @@ impl TransactionParse {
             }
         }
 
-        for (line_num, line) in self.lines.iter().enumerate() {
+        for (line_num, line) in self.stmts.iter().enumerate() {
             match line {
                 SdbStatement::Import { var_name, .. } => {
                     vars.push((var_name.to_string(), line_num));
@@ -164,7 +193,7 @@ impl TransactionParse {
     pub fn full_queries(&self) -> Vec<(&'_ LitStr, String)> {
         let mut queries = Vec::new();
 
-        for line in self.lines.iter() {
+        for line in self.stmts.iter() {
             match line {
                 SdbStatement::Import { .. } => continue,
                 SdbStatement::Ignored { ref sql }
@@ -180,22 +209,4 @@ impl TransactionParse {
 
         queries
     }
-
-
-
-
-    // pub fn syntax_check(&self) {
-    //     tester::check_syntax(self)
-
-    //     // let success = crate::syntaxer::check_syntax(&vars, &queries);
-
-    //     #[cfg(feature = "query-test")]
-    //     // if success.is_ok() {
-    //         let full_sql = queries
-    //             .iter()
-    //             .map(|(sql, _)| sql.value())
-    //             .collect::<Vec<String>>()
-    //             .join(";\n");
-    //     // }
-    // }
 }

@@ -1,21 +1,15 @@
-use std::env::VarError;
-use std::fmt::{Write, Error as FmtError};
-
-use proc_macro_error::{Diagnostic, Level};
-use proc_macro_error::{emit_warning, emit_error, emit_call_site_error};
-use reqwest::blocking::*;
-use serde_json::Value;
-use syn::LitStr;
+use ::std::env::VarError;
+use ::std::fmt::{Write, Error as FmtError};
+use ::proc_macro_error::{Diagnostic, Level, emit_error};
+use ::reqwest::blocking::*;
+use ::serde_json::Value;
+use ::syn::LitStr;
 
 use crate::TransactionParse;
 
-pub enum SurrealResponse {
-    Completed( Vec<Value> ),
-    SyntaxError( SyntaxError ),
-}
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
-pub struct SyntaxError {
+pub(crate) struct SyntaxError {
     pub code: usize,
     pub description: String,
     pub details: String,
@@ -26,7 +20,7 @@ pub struct SyntaxError {
 
 //
 
-pub fn run_test( trans: &TransactionParse ) -> Result<(), Diagnostic> {
+pub(crate) fn run_test( trans: &TransactionParse ) -> Result<(), Diagnostic> {
     // compile the complete SQL request
     let full_sql = match build_sql( trans ) {
         Ok(sql) => sql,
@@ -97,23 +91,24 @@ pub fn run_test( trans: &TransactionParse ) -> Result<(), Diagnostic> {
 
 //
 
-pub fn handle_and_emit(err: &SyntaxError, trans: &TransactionParse, sent_sql: String) -> Result<bool, Diagnostic> {
+pub(crate) fn handle_and_emit(err: &SyntaxError, trans: &TransactionParse, _sent_sql: String) -> Result<bool, Diagnostic> {
     match get_location(&err.information) {
-        Some((line, col, Some(region))) => {
+        Some((line, _, Some(region))) => {
             let Some((lit, full_sql)) = get_litstr( line, trans ) else {
-                panic!("get_litstr failed\n{sent_sql}\n{line}, {col}, {region}\n\n{err:#?}\n");
                 return Ok(false)
             };
             let idx = match lit.value().find(&region) { 
                 Some(idx) => idx,
-                None if let Some(idx) = full_sql.find(&region) => idx,
-                _ => return Ok(false)
+                None => {
+                    if let Some(idx) = full_sql.find(&region) {
+                        idx
+                    }
+                    else {
+                        return Ok(false)
+                    }
+                }
             };
-            let line_span = lit.span().unwrap();
-            let mut l = proc_macro::Literal::string(&lit.value());
-            l.set_span(line_span);
-            let range = idx+1..(idx+region.len()+1);
-            let highlight = l.subspan(range).unwrap_or( line_span );
+            let highlight = super::local::span_range(lit, idx, region.len());
             emit_error!(
                 highlight, "Syntax error in SurrealQL";
                 help = "\n > {}\n", full_sql;
@@ -122,45 +117,43 @@ pub fn handle_and_emit(err: &SyntaxError, trans: &TransactionParse, sent_sql: St
             return Ok(true)
         },
 
-        Some((line, col, None)) => {
-            let Some((lit, full_sql)) = get_litstr( line, trans ) else { 
-                return Err(
-                    Diagnostic::new(Level::Error, "Syntax error in SurrealQL".to_string())
-                    .note(format!("Server Response:\n{:#?}\n", err))
-                )
-                //     .
-                // emit_call_site_error!(
-                //     "Syntax error in SurrealQL";
-                //     info = "Server Response:\n{:#?}\n", err;
-                // );
-                // return true
-            };
-            emit_error!(
-                lit, "Syntax error in SurrealQL";
-                help = "\n > {}\n", full_sql;
-                info = "Server Response:\n{:#?}\n", err;
-            );
-            return Ok(true)
+        Some((line, _, None)) => {
+            return match get_litstr(line, trans) {
+                Some((lit, full_sql)) => {
+                    emit_error!(
+                        lit, "Syntax error in SurrealQL";
+                        help = "\n > {}\n", full_sql;
+                        info = "Server Response:\n{:#?}\n", err;
+                    );
+                    Ok(true)
+                },
+                None => {
+                    Err(
+                        Diagnostic::new(Level::Error, "Syntax error in SurrealQL".to_string())
+                        .note(format!("Server Response:\n{:#?}\n", err))
+                    )
+                }
+            }
         },
 
         _ => panic!("gggggg")
     }
 
-    return Ok(false)
+    // return Ok(false)
 }
 
 //
 
 //
 
-pub fn get_litstr<'a>( line: usize, trans: &'a TransactionParse ) -> Option<(&'a LitStr, String)> {
-    let mut line = (line as isize - 1); // sub 1 for BEGIN statement
+pub(crate) fn get_litstr<'a>( line: usize, trans: &'a TransactionParse ) -> Option<(&'a LitStr, String)> {
+    let mut line = line as isize - 1; // sub 1 for BEGIN statement
     if let Some( ref args ) = trans.args {
         for f in args.fields.iter() {
             match f {
                 crate::parts::QueryArg::Expr(_) => line -= 2,
                 crate::parts::QueryArg::Var(_) => line -= 1,
-                crate::parts::QueryArg::Alias { name, _colon, expr } => {
+                crate::parts::QueryArg::Alias { .. } => {
                     line -= 2;   
                 },
             }
@@ -170,8 +163,6 @@ pub fn get_litstr<'a>( line: usize, trans: &'a TransactionParse ) -> Option<(&'a
     if line < 0 {
         panic!("Highlight out of range! {line}")
     }
-
-    let start_line = line;
 
     for (lit, full_sql) in trans.full_queries() {
         let lines_in_query = full_sql.chars()
@@ -191,7 +182,7 @@ pub fn get_litstr<'a>( line: usize, trans: &'a TransactionParse ) -> Option<(&'a
 
 //
 
-pub fn get_location( info: &str ) -> Option<(usize, usize, Option<String>)> {
+pub(crate) fn get_location( info: &str ) -> Option<(usize, usize, Option<String>)> {
     if ! info.starts_with("There was a problem with the database: Parse error on line") {
         return None;
     }
@@ -212,7 +203,7 @@ pub fn get_location( info: &str ) -> Option<(usize, usize, Option<String>)> {
     let Ok( col ) = second_num_str.parse::<usize>() else { return None };
 
     if let Some(idx) = rest.find("when parsing '") {
-        let mut region = &rest[(idx+14)..(rest.len()-1)];
+        let region = &rest[(idx+14)..(rest.len()-1)];
 
         match region.find(";--\n") {
             Some(idx) => {
@@ -223,8 +214,6 @@ pub fn get_location( info: &str ) -> Option<(usize, usize, Option<String>)> {
                 Some(( line, col, Some( String::from(region)) ))
             }
         }
-
-        // Some(( line, col, Some( String::from(region)) ))
     }
     else {
         Some(( line, col, None ))
@@ -235,7 +224,7 @@ pub fn get_location( info: &str ) -> Option<(usize, usize, Option<String>)> {
 
 //
 
-pub fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> {
+pub(crate) fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> {
     let mut out = String::from("BEGIN;\n");
     if let Some(ref args) = trans.args {
         for (idx, field) in args.fields.iter().enumerate() {
@@ -250,7 +239,7 @@ pub fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> {
     }
 
     use crate::parts::SdbStatement as SdbS;
-    for (idx, stmt) in trans.lines.iter().enumerate() {
+    for stmt in trans.lines.iter() {
         match stmt {
             SdbS::Import { .. } => { },
             SdbS::Ignored { sql } |
@@ -258,12 +247,12 @@ pub fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> {
             SdbS::Parse { sql, .. } |
             SdbS::ParseTail { sql, .. } => {
                 if sql.methods.len() > 0 {
-                    writeln!(out, "{};--", sql.literal.value());
-                    writeln!(out, "{};--", sql.complete_sql());
+                    writeln!(out, "{};--", sql.literal.value())?;
+                    writeln!(out, "{};--", sql.complete_sql())?;
                 }
                 else {
-                    writeln!(out, "{};--", sql.literal.value());
-                    writeln!(out, "");
+                    writeln!(out, "{};--", sql.literal.value())?;
+                    writeln!(out, "")?;
                 }
             },
         }
@@ -278,7 +267,7 @@ pub fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> {
 
 //
 
-pub fn prepare_request() -> Result<RequestBuilder, VarError> {
+pub(crate) fn prepare_request() -> Result<RequestBuilder, VarError> {
     use std::env::var;
     let host = var("SURREAL_HOST")?;
     let ns = var("SURREAL_NS")?;

@@ -1,10 +1,10 @@
-use reqwest::{Client, ClientBuilder, Error as ReqError, RequestBuilder, Url};
-use serde_json::Value;
+use ::reqwest::{Client, ClientBuilder, Error as ReqError, RequestBuilder, Url};
+use ::serde_json::Value;
 
 use crate::{
     client::interface::*,
     error::{SdbError, SdbResult},
-    reply::QueryReply,
+    reply::StatementResult,
     server_info::ServerInfo,
 };
 
@@ -34,11 +34,11 @@ impl HttpSurrealInterface {
         Ok(req)
     }
 
-    async fn execute_query( &self, info: &ServerInfo, sql: impl ToString ) -> SdbResult<Vec<QueryReply>> {
+    async fn execute_query( &self, info: &ServerInfo, sql: impl ToString ) -> SdbResult<Vec<StatementResult>> {
         let req = self.request(info)?.body( sql.to_string() );
         let res = req.send().await.map_err(|e| convert_err(e, info))?;
         let txt = res.text().await.map_err(|e| convert_err(e, info))?;
-        match serde_json::from_str::<Vec<QueryReply>>(&txt) {
+        match serde_json::from_str::<Vec<StatementResult>>(&txt) {
             Err(_err) => unreachable!("Response Parse Failure"),
             Ok(replies) => Ok(replies),
         }

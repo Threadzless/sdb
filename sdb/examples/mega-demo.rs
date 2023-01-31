@@ -18,7 +18,7 @@ async fn main() -> Result<(), SdbError> {
     }
 
     // Alternative syntax for single values
-    let twelve_two = sdb::query!( client => { "SELECT * FROM 12" as isize });
+    let twelve_two = sdb::query!( client => { "SELECT * FROM 12" as isize })?;
     if twelve_two == 12 {
         println!("   Twelve continues to equal 12");
     }

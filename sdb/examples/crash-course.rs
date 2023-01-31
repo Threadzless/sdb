@@ -30,7 +30,7 @@ async fn main() -> SdbResult<()> {
 
 
     // Alternative syntax for single queries
-    let twelve_yet_again = sdb::query!( client => { "SELECT * FROM 12" as usize });
+    let twelve_yet_again = sdb::query!( client => { "SELECT * FROM 12" as usize })?;
     assert_eq!(twelve_again, twelve_yet_again);
     assert_eq!(twelve_yet_again, 12); // just to be sure
     
@@ -74,8 +74,7 @@ async fn main() -> SdbResult<()> {
     // Use Query Sugar™
     let search = "George";
     sdb::query!( client =[ search ]=> {
-        // Add up the values of `word_count` in all books
-        "SELECT * FROM `books` LIMIT 10 WHERE `author`.`name` ~ $search"
+        "SELECT * FROM `books` WHERE `author`.`name` ~ $search LIMIT 10"
             .sum("word_count")
             => total_word_count: usize;
 
@@ -93,7 +92,7 @@ async fn main() -> SdbResult<()> {
     // use FETCH clause to get nested data
     let books_by = sdb::query!( client => {
         "SELECT * FROM `books` ORDER rand() LIMIT 5 FETCH `author`" as Vec<Book>;
-    });
+    })?;
 
     println!("\nHere are five books and their authors:" );
     for book in books_by {

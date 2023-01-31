@@ -1,8 +1,9 @@
-use serde::Deserialize;
+use ::serde::Deserialize;
 
-use crate::reply::QueryReply;
-
-use super::SurrealRequest;
+use crate::{
+    reply::StatementResult,
+    client::interface::SurrealRequest,
+};
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct SurrealResponseError {
@@ -19,14 +20,14 @@ pub enum SurrealResponse {
     },
     Result {
         id: u32,
-        result: Option<Vec<QueryReply>>,
+        result: Option<Vec<StatementResult>>,
     },
 }
 
 unsafe impl Send for SurrealResponse {}
 unsafe impl Sync for SurrealResponse {}
 
-type SurrealResponseResult = Result<Option<Vec<QueryReply>>, SurrealResponseError>;
+type SurrealResponseResult = Result<Option<Vec<StatementResult>>, SurrealResponseError>;
 
 impl From<SurrealResponse> for SurrealResponseResult {
     fn from(val: SurrealResponse) -> SurrealResponseResult {
