@@ -85,7 +85,8 @@ impl Serialize for RecordId {
 
 impl<'de> Deserialize<'de> for RecordId {
     fn deserialize<D: Deserializer<'de>>(des: D) -> Result<Self, D::Error> {
-        des.deserialize_string(RecordIdVisitor)
+        
+        des.deserialize_any(RecordIdVisitor)
     }
 }
 
@@ -96,6 +97,28 @@ impl<'de> Visitor<'de> for RecordIdVisitor {
 
     fn expecting(&self, _f: &mut Formatter) -> FmtResult {
         Ok(())
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+        where
+            A: MapAccess<'de>, {
+        
+        while let Some(k) = map.next_key::<String>()? {
+            if "id".ne(&k) { continue }
+            let Ok( v ) = map.next_value::<String>() else {
+                return Err(serde::de::Error::custom("`id` must be a String"))
+            };
+
+            return match RecordId::parse( v ) {
+                Ok(id) => Ok(id),
+                Err(err) => {
+                    let msg = format!("Unable to parse `id` as a RecordId\n{err:#?}");
+                    Err(serde::de::Error::custom(msg))
+                },
+            }
+        }
+
+        Err(serde::de::Error::missing_field("id"))
     }
 
     fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {

@@ -14,8 +14,7 @@ async fn main() -> Result<(), SdbError> {
     let search_term = "George";
 
     // Run a query on `client`
-    trace_macros!(true);
-    sdb::query!( client =[ search_term ] => {
+    sdb::queries!( client =[ search_term ] => {
         // $0  refers to the first var inside the brackets. Vars can be 
         // literals or expressions. if the var is a 
         "SELECT * FROM books WHERE author.name ∋ search_term"
@@ -24,7 +23,6 @@ async fn main() -> Result<(), SdbError> {
         "SELECT * FROM books WHERE author.name !~ $search_term"
             .count() => books_not_by: usize;
     });
-    trace_macros!(false);
 
     // List results
     println!("There are {books_not_by} NOT by people named {search_term}");
@@ -37,7 +35,10 @@ async fn main() -> Result<(), SdbError> {
     let min_word_count = 249_500;
 
     // Run multiple queries together (errors are automatically bubbled)
-    sdb::query!( client => {
+    // notice that this macro is `queries` and not `query`
+    // the syntax is slightly different, and query must be run in a 
+    // method or closure which returns a [`SdbResult<T>`]
+    sdb::queries!( client => {
 
         // $mwc now equals 250_000
         { min_word_count + 500 } => $mwc;

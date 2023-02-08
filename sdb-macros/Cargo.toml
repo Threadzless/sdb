@@ -1,6 +1,6 @@
 [package]
 name = "sdb-macros"
-version = "0.8.0"
+version = "0.9.2"
 edition = "2021"
 description = "An unofficial SurrealDB client, intended for working with Yew"
 readme = "README.md"
@@ -37,7 +37,7 @@ sdb = { path = "../sdb" }
 
 [features]
 default = [
-    # "query-test",
+    "query-test",
     # "macro-print",
 ]
 ## Prints the output of the macro at compile time. helpful for debugging 

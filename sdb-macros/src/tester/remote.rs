@@ -5,7 +5,8 @@ use ::reqwest::blocking::*;
 use ::serde_json::Value;
 use ::syn::LitStr;
 
-use crate::TransactionParse;
+use crate::parts::SdbArgs;
+
 
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -20,9 +21,12 @@ pub(crate) struct SyntaxError {
 
 //
 
-pub(crate) fn run_test( trans: &TransactionParse ) -> Result<(), Diagnostic> {
+pub(crate) fn run_test(
+    queries: &Vec<(&LitStr, String)>,
+    args: &Option<SdbArgs>,
+) -> Result<(), Diagnostic> {
     // compile the complete SQL request
-    let full_sql = match build_sql( trans ) {
+    let full_sql = match build_sql( args, queries ) {
         Ok(sql) => sql,
         Err(err) => {
             return Err(
@@ -69,7 +73,7 @@ pub(crate) fn run_test( trans: &TransactionParse ) -> Result<(), Diagnostic> {
     let err = serde_json::from_value::<SyntaxError>(reply).expect("Unexpected response object");
         
     
-    match handle_and_emit(&err, trans, full_sql) {
+    match handle_and_emit(&err, args, queries, full_sql) {
         Ok( true ) => { 
             // everything worked properly
             Ok( () )
@@ -91,10 +95,11 @@ pub(crate) fn run_test( trans: &TransactionParse ) -> Result<(), Diagnostic> {
 
 //
 
-pub(crate) fn handle_and_emit(err: &SyntaxError, trans: &TransactionParse, _sent_sql: String) -> Result<bool, Diagnostic> {
+pub(crate) fn handle_and_emit(err: &SyntaxError, args: &Option<SdbArgs>, queries: &Vec<(&LitStr, String)>, _sent_sql: String) -> Result<bool, Diagnostic> {
     match get_location(&err.information) {
         Some((line, _, Some(region))) => {
-            let Some((lit, full_sql)) = get_litstr( line, trans ) else {
+            println!("line, _, Some(..)");
+            let Some((lit, full_sql)) = get_litstr( line, args, queries ) else {
                 return Ok(false)
             };
             let idx = match lit.value().find(&region) { 
@@ -118,7 +123,8 @@ pub(crate) fn handle_and_emit(err: &SyntaxError, trans: &TransactionParse, _sent
         },
 
         Some((line, _, None)) => {
-            return match get_litstr(line, trans) {
+            println!("line, _, None");
+            return match get_litstr(line, args, queries) {
                 Some((lit, full_sql)) => {
                     emit_error!(
                         lit, "Syntax error in SurrealQL";
@@ -146,9 +152,9 @@ pub(crate) fn handle_and_emit(err: &SyntaxError, trans: &TransactionParse, _sent
 
 //
 
-pub(crate) fn get_litstr<'a>( line: usize, trans: &'a TransactionParse ) -> Option<(&'a LitStr, String)> {
+pub(crate) fn get_litstr<'a>( line: usize, args: &Option<SdbArgs>, queries: &'a Vec<(&LitStr, String)> ) -> Option<(&'a LitStr, &'a String)> {
     let mut line = line as isize - 1; // sub 1 for BEGIN statement
-    if let Some( ref args ) = trans.args {
+    if let Some( ref args ) = args {
         for f in args.fields.iter() {
             match f {
                 crate::parts::QueryArg::Expr(_) => line -= 2,
@@ -164,12 +170,13 @@ pub(crate) fn get_litstr<'a>( line: usize, trans: &'a TransactionParse ) -> Opti
         panic!("Highlight out of range! {line}")
     }
 
-    for (lit, full_sql) in trans.full_queries() {
+    println!("get_litstr: {line}");
+    for (lit, full_sql) in queries.iter() {
         let lines_in_query = full_sql.chars()
             .filter(|c| '\n'.eq(c) )
             .count() as isize;
 
-        line -= lines_in_query + 1;
+        line -= lines_in_query * 2;
 
         if line <= 1 { 
             return Some((lit, full_sql))
@@ -224,9 +231,12 @@ pub(crate) fn get_location( info: &str ) -> Option<(usize, usize, Option<String>
 
 //
 
-pub(crate) fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> {
+pub(crate) fn build_sql(
+    args: &Option<SdbArgs>,
+    queries: &Vec<(&LitStr, String)>
+) -> Result<String, FmtError> {
     let mut out = String::from("BEGIN;\n");
-    if let Some(ref args) = trans.args {
+    if let Some(ref args) = args {
         for (idx, field) in args.fields.iter().enumerate() {
             writeln!(out, "LET ${idx} = 0;")?;
             match field {
@@ -238,23 +248,14 @@ pub(crate) fn build_sql( trans: &TransactionParse ) -> Result<String, FmtError> 
         }
     }
 
-    use crate::parts::SdbStatement as SdbS;
-    for stmt in trans.lines.iter() {
-        match stmt {
-            SdbS::Import { .. } => { },
-            SdbS::Ignored { sql } |
-            SdbS::ToVar { sql, .. } |
-            SdbS::Parse { sql, .. } |
-            SdbS::ParseTail { sql, .. } => {
-                if sql.methods.len() > 0 {
-                    writeln!(out, "{};--", sql.literal.value())?;
-                    writeln!(out, "{};--", sql.complete_sql())?;
-                }
-                else {
-                    writeln!(out, "{};--", sql.literal.value())?;
-                    writeln!(out, "")?;
-                }
-            },
+    for (lit, full) in queries.iter() {
+        if lit.value().starts_with("$") {
+            writeln!(out, "SELECT * FROM {};--", lit.value())?;
+            writeln!(out, "{};--", full)?;
+        }
+        else {
+            writeln!(out, "{};--", lit.value())?;
+            writeln!(out, "{};--", full)?;
         }
     }
 

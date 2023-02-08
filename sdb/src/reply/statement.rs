@@ -90,20 +90,20 @@ impl<'de> Visitor<'de> for QueryResultVisitor {
         while let Some(k) = map.next_key::<String>()? {
             match k.as_str() {
                 "result" => {
-                    result = Some(map.next_value().expect("# # # i"));
+                    result = Some(map.next_value()?);
                 }
                 "status" => {
-                    status = Some(map.next_value().expect("# # # h"));
+                    status = Some(map.next_value()?);
                 }
                 "time" => {
-                    let time_val: String = map.next_value().expect("# # # g");
+                    let time_val: String = map.next_value()?;
                     time = Some(parse_durration(time_val.as_str()));
                 }
                 "detail" => {
-                    detail = map.next_value().expect("# # # j");
+                    detail = map.next_value()?;
                 }
                 _ => {
-                    println!(" Unknown {} => {:?}", k, map.next_value::<Value>().unwrap());
+                    println!(" Unknown {} => {:?}", k, map.next_value::<Value>()?);
                 }
             }
         }

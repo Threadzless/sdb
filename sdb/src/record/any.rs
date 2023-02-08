@@ -129,12 +129,3 @@ impl SurrealRecord for AnyRecord {
             .collect::<Map<String, Value>>()
     }
 }
-
-// impl<S: SurrealRecord> TryInto<S> for AnyRecord {
-//     type Error = serde_json::Error;
-
-//     fn try_from(value: S) -> Result<Self, Self::Error> {
-//         todo!()
-//     }
-// }
-

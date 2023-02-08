@@ -1,18 +1,18 @@
-// use ::proc_macro::MultiSpan;
-use ::proc_macro2::TokenStream;
-// use proc_macro2::TokenStream;
+use ::proc_macro2::Span;
 use ::quote::{quote, ToTokens};
 use ::syn::{parse::*, token::*, *};
 
 use crate::parts::*;
 
+mod import;
+mod tail;
+
+pub(crate) use import::*;
+pub(crate) use tail::*;
+
+
 pub(crate) enum SdbStatement {
-    Import {
-        source: ExprBlock,
-        _arrow: Token![=>],
-        _dollar: Token![$],
-        var_name: Ident,
-    },
+    Import( ImportStatement ),
     ToVar {
         sql: QuerySqlBlock,
         _arrow: Token![=>],
@@ -30,44 +30,33 @@ pub(crate) enum SdbStatement {
         _colon: Token![:],
         path: QueryResultType,
     },
-    ParseTail {
-        sql: QuerySqlBlock,
-        _as: Token![as],
-        path: QueryResultType,
-    },
 }
 
 impl Parse for SdbStatement {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(Brace) {
-            return Ok(Self::Import {
-                source: input.parse()?,
-                _arrow: input.parse()?,
-                _dollar: input.parse()?,
-                var_name: input.parse()?,
-            });
+            return Ok(Self::Import( input.parse()? ));
         }
 
         let sql: QuerySqlBlock = input.parse()?;
         if input.peek(Token![;]) {
             return Ok(Self::Ignored { sql });
         }
-
-        if let Ok(_as) = input.parse() {
-            return Ok(Self::ParseTail {
-                sql,
-                _as,
-                path: input.parse()?,
-            });
+        else if input.peek(Token![as]) {
+            let msg = format!(
+                "`\"SQL\" as TYPE` not supported in queries! macro. Use assign syntax instead:\n{}",
+                "\"SQL\" => var_name: TYPE\n"
+            );
+            return Err( input.error(msg) )
         }
 
         let _arrow = input.parse()?;
 
-        if let Some(dollar) = input.parse::<Option<Token![$]>>()? {
+        if let Some(_dollar) = input.parse::<Option<Token![$]>>()? {
             Ok(Self::ToVar {
                 sql,
                 _arrow,
-                _dollar: dollar,
+                _dollar,
                 var_name: input.parse()?,
             })
         } else {
@@ -84,54 +73,39 @@ impl Parse for SdbStatement {
 }
 
 impl SdbStatement {
-    pub(crate) fn get_runner(&self) -> TokenStream {
-        let SdbStatement::ParseTail { path, .. } = self else {
-            unreachable!("get_runner called on a non-tail statement")
-        };
+    // pub(crate) fn get_runner(&self) -> TokenStream {
+    //     match self {
+    //         SdbStatement::ParseTail( ref tail ) => tail.get_runner(),
+    //         _ => unreachable!("get_runner called on a non-tail statement")
+    //     }
+    // }
+}
 
-        match path {
-            QueryResultType::Option(ty) => quote!{
-                . run_parse_opt::<#ty>()
+impl ToTokens for SdbStatement {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        match self {
+            SdbStatement::Import( i ) => i.to_tokens(tokens),
+            // SdbStatement::ParseTail( tail ) => tail.to_tokens(tokens),
+            SdbStatement::ToVar { sql, _arrow, _dollar, var_name } => {
+                tokens.extend(quote!{#sql #_arrow #_dollar #var_name })
             },
-            QueryResultType::Single(ty) =>quote!{
-                . run_parse_one::<#ty>()
-            },
-            QueryResultType::Vec(ty) => quote!{
-                . run_parse_vec::<#ty>()
+            SdbStatement::Ignored { sql } => {
+                sql.to_tokens(tokens);
+            }
+            SdbStatement::Parse { sql, _arrow, is_mut, store, _colon, path } => {
+                tokens.extend(quote!{ #sql #_arrow #is_mut #store #_colon #path })
             },
         }
     }
 }
 
-impl ToTokens for SdbStatement {
-    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
-        let stream = match self {
-            SdbStatement::Import { source, _arrow, _dollar, var_name } => quote!{
-                #source #_arrow #_dollar #var_name
-            },
-            SdbStatement::ToVar { sql, _arrow, _dollar, var_name } => quote!{
-                #sql #_arrow #_dollar #var_name   
-            },
-            SdbStatement::Ignored { sql } => {
-                return sql.to_tokens(tokens);
-            }
-            SdbStatement::Parse { sql, _arrow, is_mut, store, _colon, path } => quote!{
-                #sql #_arrow #is_mut #store #_colon #path
-            },
-            SdbStatement::ParseTail { sql, _as, path } => quote!{
-                #sql #_as #path
-            },
-        };
-
-        tokens.extend(stream)
-    }
-}
-
-impl From<&SdbStatement> for proc_macro2::Span {
+impl From<&SdbStatement> for Span {
     fn from(value: &SdbStatement) -> Self {
         match value {
-            SdbStatement::Parse { sql, path, .. } |
-            SdbStatement::ParseTail { sql, path, .. } => {
+            // SdbStatement::ParseTail( tail ) => {
+            //     Span::from( tail )
+            // },
+            SdbStatement::Parse { sql, path, .. } => {
                 sql.literal.span()
                     .join( path.span() )
                     .unwrap_or( sql.literal.span() )
@@ -144,11 +118,7 @@ impl From<&SdbStatement> for proc_macro2::Span {
             SdbStatement::Ignored { sql } => {
                 sql.literal.span()
             },
-            SdbStatement::Import { source, var_name, .. } => {
-                source.block.brace_token.span
-                    .join( var_name.span() )
-                    .unwrap_or( source.block.brace_token.span )
-            }
+            SdbStatement::Import( i ) => Span::from(i),
         }
     }
 }

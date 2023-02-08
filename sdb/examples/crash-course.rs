@@ -23,21 +23,22 @@ async fn main() -> SdbResult<()> {
 
 
     // Use the query! macro to reduce boilerplate
-    sdb::query!( client => {
-        "SELECT * FROM 12" => twelve_again: usize;
-    });
+    let twelve_again = sdb::query!( client => "SELECT * FROM 12" as usize )?;
     assert_eq!(twelve, twelve_again);
 
 
     // Alternative syntax for single queries
-    let twelve_yet_again = sdb::query!( client => { "SELECT * FROM 12" as usize })?;
+    let twelve_yet_again = sdb::query!( client => "SELECT * FROM 12" as usize )?;
     assert_eq!(twelve_again, twelve_yet_again);
     assert_eq!(twelve_yet_again, 12); // just to be sure
     
 
 
     // Now run multiple queries
-    sdb::query!( client => {
+    // `queries!` must be run in an async function which returns [`SdbResult<T>`]
+    // to handle errors properly.
+    // the syntax is slightly different from the `query!` macro
+    sdb::queries!( client => {
         // Update some records, and return zero results
         "UPDATE books SET word_count = 0 WHERE word_count = unset";
 
@@ -56,7 +57,7 @@ async fn main() -> SdbResult<()> {
 
     // Inject variables into the query
     let search = "George";
-    sdb::query!( client =[ search, max: 5 ]=> {
+    sdb::queries!( client =[ search, max: 5 ]=> {
         // Use variable
         "SELECT * FROM books WHERE author.name ~ $0" => books_by: Vec<Book>;
 
@@ -73,7 +74,7 @@ async fn main() -> SdbResult<()> {
 
     // Use Query Sugar™
     let search = "George";
-    sdb::query!( client =[ search ]=> {
+    sdb::queries!( client =[ search ]=> {
         "SELECT * FROM `books` WHERE `author`.`name` ~ $search LIMIT 10"
             .sum("word_count")
             => total_word_count: usize;
@@ -90,17 +91,17 @@ async fn main() -> SdbResult<()> {
 
 
     // use FETCH clause to get nested data
-    let books_by = sdb::query!( client => {
-        "SELECT * FROM `books` ORDER rand() LIMIT 5 FETCH `author`" as Vec<Book>;
-    })?;
+    let books_by = sdb::query!( client => 
+        "SELECT * FROM `books` ORDER rand() LIMIT 5 FETCH `author`" as Vec<Book>
+    )?;
 
     println!("\nHere are five books and their authors:" );
     for book in books_by {
         println!("  - {:<30} by {}", book.title, book.author().name )
     }
 
-    // The query! macro will also raise errors at compile time if it 
-    // catches a mistake, like:
+    // The `query!` and `queries!` macros will also raise errors at compile time
+    // if it catches a mistake, like:
     // - Clauses out of order
     // - Unbalanced and out of order parenthesies, braces, and brackets
     // - using an undefined variable
@@ -121,7 +122,7 @@ pub struct Book {
     pub id: RecordId,
     pub title: String,
     pub word_count: usize,
-    // either a RecordId, or an Author. This makes FET
+    // either a RecordId, or an Author. This makes FETCH statements easier
     pub author: RecordLink<Author>,
 }
 

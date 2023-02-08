@@ -10,22 +10,22 @@ async fn main() -> Result<(), SdbError> {
 
 
     // Execute a basic query
-    sdb::query!( client => {
-        "SELECT * FROM 12" => twelve: isize
-    });
+    let twelve = sdb::query!( client => "SELECT * FROM 12" as isize )?;
     if twelve == 12 {
         println!("1) Twelve does in fact equal 12");
     }
 
-    // Alternative syntax for single values
-    let twelve_two = sdb::query!( client => { "SELECT * FROM 12" as isize })?;
+    // Alternative syntax, slightly less clear;
+    sdb::queries!( client => {
+        "SELECT * FROM 12" => twelve_two: isize
+    });
     if twelve_two == 12 {
         println!("   Twelve continues to equal 12");
     }
 
 
     // Now multiple queries. Results are parsed with `serde::Deserialize`
-    sdb::query!( client => {
+    sdb::queries!( client => {
         // Run this query, ignore the results.
         "UPDATE books SET word_count = 0 WHERE word_count < 0";
 
@@ -47,7 +47,7 @@ async fn main() -> Result<(), SdbError> {
 
 
     // Now store results in a mutable field
-    sdb::query!( client => {
+    sdb::queries!( client => {
         "SELECT * FROM books ORDER rand() LIMIT 5" => mut five_books: Vec<BookSchema> 
     });
 
@@ -58,9 +58,8 @@ async fn main() -> Result<(), SdbError> {
 
 
     // Fetch nested data
-    sdb::query!( client => {
-        "SELECT * FROM books LIMIT 3 FETCH author" => some_books: Vec<BookSchema>;
-    });
+    let some_books = sdb::query!( client => 
+        "SELECT * FROM books LIMIT 3 FETCH author" as Vec<BookSchema> )?;
     println!("4) Three books and their authors:");
     for book in some_books {
         println!("     - '{}' by {}", book.title, book.author().name)
@@ -69,7 +68,7 @@ async fn main() -> Result<(), SdbError> {
 
     // Inject variables
     let search_term = "George";
-    sdb::query!( client =[ search_term, 6 ]=> {
+    sdb::queries!( client =[ search_term, 6 ]=> {
         // $0 = `search_term`,  $1 = 6, and so on
         "SELECT * FROM books WHERE author.name ~ $0 LIMIT $1"
             => by_george: Vec<BookSchema>;
@@ -89,7 +88,7 @@ async fn main() -> Result<(), SdbError> {
 
     // Use Query Sugar™
     // See README or macro docs for a list of sugars
-    sdb::query!( client => {
+    sdb::queries!( client => {
         "SELECT * FROM books" .count() => book_count: i32;
 
         // This does the same as the above,
@@ -99,7 +98,7 @@ async fn main() -> Result<(), SdbError> {
 
 
     // Break up queries into multiple lines.
-    sdb::query!( client => {
+    sdb::queries!( client => {
         // Store first query result in a transaction variable
         "SELECT * FROM books ORDER BY word_count DESC" => $longest;
 
@@ -112,7 +111,7 @@ async fn main() -> Result<(), SdbError> {
 
     // Run multiple queries together.
     let long_word_count = 250000;
-    sdb::query!( client =[ long_word_count ]=> {
+    sdb::queries!( client =[ long_word_count ]=> {
         // Store results of a query in a transaction variable.
         // Queries that follow can act on these results
         "SELECT * FROM books WHERE word_count > $0 ORDER word_count DESC" => $longest;

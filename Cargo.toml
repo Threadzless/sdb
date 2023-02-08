@@ -2,8 +2,6 @@
 members = [
     "sdb",
     "sdb-macros",
-    # "sdb-macros/inner-macros",
-    # "sdb-parser",
 ]
 
 exclude = [

@@ -1,24 +1,30 @@
-use ::proc_macro_error::Diagnostic;
+use ::syn::LitStr;
 
-use crate::parts::QueryParse;
+use crate::parts::SdbArgs;
+
 
 mod local;
 #[cfg(feature = "query-test")]
 mod remote;
 
+/// Examines the syntax for out-of-order clauses, missed parenthesies, and other common
+/// issues. If feature `query-test` is enabled, it will also execute the query in a 
+/// rolled back transaction at compile time to ensure the syntax is perfect
+pub(crate) fn check_syntax(
+    vars: Vec<(String, usize)>,
+    queries: Vec<(&LitStr, String)>,
+    args: &Option<SdbArgs>,
+) {
 
-pub(crate) fn check_syntax( trans: &QueryParse ) -> Result<(), Diagnostic>{
-
-    match local::check(trans) {
+    match local::check(&vars, &queries) {
         Ok(_) => {},
-        Err(e) => {
-            e.emit();
-            return Ok( () )
-        },
+        Err(e) => return e.emit(),
     }
 
     #[cfg(feature = "query-test")]
-    remote::run_test(trans)?;
+    match remote::run_test(&queries, args) {
+        Ok(_) => {},
+        Err(e) => return e.emit()
+    }
 
-    Ok( () )
 }

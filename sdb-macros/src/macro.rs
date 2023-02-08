@@ -6,7 +6,7 @@
 use ::proc_macro::TokenStream as TokenStreamOld;
 use ::proc_macro2::{Span, TokenStream};
 use ::proc_macro_error::*;
-use ::quote::{quote, ToTokens};
+use ::quote::quote;
 use ::syn::*;
 
 mod parts;
@@ -14,7 +14,7 @@ mod tester;
 
 use parts::*;
 
-/// A macro for running SurrealDb queries and transactions without a bunch of boilerplate.
+/// A macro for running a single SurrealDb query or statement without a bunch of boilerplate.
 ///
 /// Example
 /// ===============
@@ -31,7 +31,94 @@ use parts::*;
 /// # let client = SurrealClient::demo();
 ///     let min_words = 250_000;
 /// 
-///     sdb::query!( client =[ min_words ]=> {
+///     let long_books = sdb::query!( client =[ min_words ]=> 
+///         "SELECT * FROM books WHERE word_count > $0 LIMIT 5" as Vec<BookSchema>
+///     )?;
+///
+///     println!("The longest books are:");
+///     for book in long_books {
+///         println!("  {}", book.title)
+///     }
+/// # Ok( () )
+/// # }
+/// #
+/// #
+/// # #[derive(serde::Serialize, serde::Deserialize, SurrealRecord)]
+/// # #[table("books")]
+/// # pub struct BookSchema {
+/// #     pub id: RecordId,
+/// #     pub title: String,
+/// #     pub word_count: Option<usize>,
+/// #     pub author: RecordLink<AuthorSchema>,
+/// # }
+/// # 
+/// # #[derive(serde::Serialize, serde::Deserialize, SurrealRecord)]
+/// # #[table("authors")]
+/// # pub struct AuthorSchema {
+/// #     pub id: RecordId,
+/// #     pub name: String,
+/// # }
+/// ```
+/// 
+#[proc_macro_error]
+#[proc_macro]
+pub fn query(input: TokenStreamOld) -> TokenStreamOld {
+    let query_func = parse_macro_input!(input as SingleQueryParse);
+
+    let vars = query_func.arg_vars();
+    let queries = query_func.full_queries();
+    tester::check_syntax(vars, queries, &query_func.args);
+
+    let client = &query_func.client;
+    let trans = Ident::new("db_trans", Span::call_site());
+    let (push_steps, _, _) = query_func.prepare(&trans);
+    let arg_steps = query_func.arg_steps();
+
+    let TailStatement { ref path, .. } = query_func.stmt;
+    let run = query_func.stmt.get_runner();
+    let out = quote!(
+        {
+            let result: ::sdb::prelude::SdbResult<#path> = #client
+                . transaction()
+                #arg_steps
+                #push_steps
+                #run
+                .await;
+
+            result
+        }
+    );
+
+    #[cfg(feature = "macro-print")]
+    println!("\n{out}\n");
+
+    out.into()
+}
+
+//
+
+//
+
+//
+
+/// A macro for running multiple SurrealDb queries without a bunch of boilerplate.
+///
+/// Example
+/// ===============
+/// This should explain the basics, but there's way more to this macro than shown here.
+/// See the crate documentation or README for a full breakdown of the macro
+/// 
+/// ```rust
+/// # use sdb::prelude::*;
+/// #
+/// # tokio_test::block_on( async {
+/// #     test_main().await.unwrap();
+/// # });
+/// # async fn test_main() -> SdbResult<()> {
+/// # let client = SurrealClient::demo();
+///     let min_words = 250_000;
+/// 
+///     sdb::queries!( client =[ min_words ]=> {
 ///         "SELECT * FROM books WHERE word_count > $0 LIMIT 5"
 ///             => long_books: Vec<BookSchema>
 ///     });
@@ -61,58 +148,29 @@ use parts::*;
 /// # }
 /// ```
 /// 
-/// # *Sugar Queries™*
-/// Long SQL statements can get hard to read, so *Sugar Queries™* 
-/// modify your base statements to do common query-related tasks 
-/// after the important part is done 
-/// 
-/// ### `count( )`
-/// Returns the number of results. Can be parsed as any number primitive
-/// ### `count( <field> )`
-/// Returns the number of times *`field`* was truthy in the results.
-/// 
 #[proc_macro_error]
 #[proc_macro]
-pub fn query(input: TokenStreamOld) -> TokenStreamOld {
-    let query_func = parse_macro_input!(input as QueryParse);
+pub fn queries(input: TokenStreamOld) -> TokenStreamOld {
+    let query_func = parse_macro_input!(input as MultiQueryParse);
 
-    if let Err( err ) = tester::check_syntax(&query_func) {
-        err.emit();
-    }
+    let vars = query_func.arg_vars();
+    let queries = query_func.full_queries();
+    tester::check_syntax(vars, queries, &query_func.args);
 
     let client = &query_func.client;
     let trans = Ident::new("db_trans", Span::call_site());
     let (push_steps, unpack, result_act) = query_func.prepare(&trans);
     let arg_steps = query_func.arg_steps();
 
-    let out = match (
-        query_func.get_tail(), 
-        unpack.is_empty()
-    ) {
-        (Some( tail ), _) => {
-            let SdbStatement::ParseTail { ref path, .. } = tail else { unreachable!() };
-            let run = tail.get_runner();
-            quote!(
-                {
-                    let result: ::sdb::prelude::SdbResult<#path> = #client
-                        . transaction()
-                        #arg_steps
-                        #push_steps
-                        #run
-                        .await;
-
-                    result
-                }
-            )
-        },
-        (None, true) => quote!{
+    let out = match unpack.is_empty() {
+        true => quote!{
             #client . transaction()
                 #arg_steps
                 #push_steps
                 .run()
                 .await
         },
-        (None, false) => quote!{    
+        false => quote!{    
             let mut #trans = #client . transaction()
                 #arg_steps
                 #push_steps
@@ -120,7 +178,7 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
                 .await #result_act;
 
             #unpack
-        }
+        },
     };
 
     #[cfg(feature = "macro-print")]
@@ -130,7 +188,6 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 }
 
 
-//
 
 /// Insert multiple records into the database
 /// 
@@ -144,7 +201,7 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 /// # async fn test_main() -> SdbResult<()> {
 /// let client = SurrealClient::demo();
 /// 
-/// let inserted_record_ids = sdb::insert!(
+/// let inserted_record_ids: Vec<RecordId> = sdb::insert!(
 ///     client => authors (id, name) => [
 ///         ("philip_p", "Philip Pullman"),
 ///         ("susanna_c", "Susanna Clarke"),
@@ -152,8 +209,10 @@ pub fn query(input: TokenStreamOld) -> TokenStreamOld {
 ///         ("leo_t", "Leo Tolstoy"),
 ///         ("charles_d", "Charles Dickens")
 ///     ]
-/// )
-/// 
+///     return id
+/// )?;
+/// # Ok( () )
+/// # }
 /// ```
 #[proc_macro_error]
 #[proc_macro]
@@ -161,65 +220,21 @@ pub fn insert(input: TokenStreamOld) -> TokenStreamOld {
     let insert = parse_macro_input!(input as InsertParse);
 
     let client = &insert.client;
-    let table_name = insert.table.to_string();
-    let fields = insert.fields.to_token_stream().to_string();
-    let field_count = insert.fields.elems.len();
+    let sql_build = insert.build_insert_sql();
 
-    let mut out = match insert.ignore.is_some() {
-        true => quote!{
-            use ::serde_json::to_string;
-            let mut sql = format!("INSERT IGNORE INTO {} {} VALUES\n", #table_name, #fields); 
-        },
-        false => quote!{
-            use ::serde_json::to_string;
-            let mut sql = format!("INSERT INTO {} {} VALUES\n", #table_name, #fields);
-        }
+    let runner = match insert.ret {
+        Some(_) => quote!{ .run_parse_vec() },
+        None => quote!{ .run() },
     };
 
-    for (i, row) in insert.values.rows.iter().enumerate() {
-        if row.elems.len() != field_count {
-            emit_error!(row, "Rows must all have the same number of elements")
-        }
-
-        if i != 0 {
-            out.extend(quote!{ sql.push_str(",\n"); });
-        }
-        out.extend(quote!{
-            sql.push('(');
-        });
-        for (idx, field) in row.elems.iter().enumerate() {
-            if idx != 0 {
-                out.extend(quote!{ sql.push(','); });
-            }
-            out.extend(quote!{
-                sql.push_str(&to_string( &#field ).unwrap());
-            })
-        }
-        out.extend(quote!{
-            sql.push(')');
-        });
-    }
-
-    let out = match insert.ret {
-        Some(ret) => {
-            let tail = format!("RETURN {}", ret.expected);
-            quote!{ {
-                #out
-                sql.push_str( #tail );
-                #client . transaction()
-                    .push( &sql )
-                    .run_parse_vec()
-                    .await
-            } }
-        },
-        None => quote!{ {
-            #out
-            sql.push_str("RETURN NONE");
+    let out = quote!{
+        {
+            #sql_build
             #client . transaction()
-            .push( &sql )
-            .run()
-            .await
-        } }
+                .push( &sql )
+                #runner
+                .await
+        } 
     };
 
     #[cfg(feature = "macro-print")]
@@ -227,6 +242,8 @@ pub fn insert(input: TokenStreamOld) -> TokenStreamOld {
 
     out.into()
 }
+
+
 
 
 //

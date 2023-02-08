@@ -9,15 +9,11 @@ mod pointer;
 pub(crate) use bracketer::*;
 pub(crate) use pointer::*;
 
-use crate::parts::QueryParse;
-
 const VAR_FINDER_REGEX: &str = r"\$([[:alnum:]_]+)\b";
 
 /// Perform SurrealQL syntax checking without sending it to the server. this should cover
 /// basic stuff like non-marching parenthesies,
-pub(crate) fn check(trans: &QueryParse) -> Result<(), Diagnostic> {
-    let vars = trans.arg_vars();
-    let queries = trans.full_queries();
+pub(crate) fn check(vars: &Vec<(String, usize)>, queries: &Vec<(&LitStr, String)>) -> Result<(), Diagnostic> {
     for (lit, sql) in queries {
         check_trans_vars(&vars, &sql, lit)?;
 
@@ -90,7 +86,7 @@ fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<(usize, Strin
             .collect::<String>();
     }
 
-    println!("MACRO PARTS: {sql}\n{parts:#?}");
+    // println!("MACRO PARTS: {sql}\n{parts:#?}");
     parts
 }
 
@@ -99,7 +95,7 @@ fn query_parts(sql: &str, mut regions: Vec<(usize, usize)>) -> Vec<(usize, Strin
 //
 
 fn check_clause_ordering(_sql: &str, lit: &LitStr, parts: &Vec<(usize, String)>) -> Result<(), Diagnostic> {
-    println!("Checking clause order for:\n  {_sql}\n  {}\n", lit.value());
+    // println!("Checking clause order for:\n  {_sql}\n  {}\n", lit.value());
 
     for (offset, part) in parts.iter() {
         if part.starts_with("SELECT") {
@@ -161,12 +157,10 @@ fn check_clause_order(
     let mut last_name = kind;
     let mut last_index = 0;
 
-    println!("CCO:  {part_offset:4} {part}");
-
     for clause in clauses.iter() {
         match part.find(clause) {
             Some( now_idx ) if now_idx < last_index => {
-                println!("ERR:OFFSET {}", part_offset);
+                // println!("ERR:OFFSET {}", part_offset);
                 return Err(
                     Diagnostic::spanned(
                         span_range(lit, now_idx + part_offset, clause.len()),
