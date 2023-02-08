@@ -1,9 +1,11 @@
 use ::std::time::Duration;
-use ::serde_json::Value;
+use ::serde_json::{Value, from_value};
 use ::serde::{
     de::{MapAccess, Visitor},
     Deserialize, Serialize,
 };
+
+use crate::prelude::{SdbError, SdbResult};
 
 #[derive(Debug, Serialize)]
 pub struct StatementResult {
@@ -14,34 +16,44 @@ pub struct StatementResult {
 }
 
 impl StatementResult {
-    pub fn parse_vec<T: for<'de> Deserialize<'de>>(&mut self) -> Vec<T> {
-        let res = self.result.clone();
-        serde_json::from_value(res).unwrap()
+    pub fn parse_vec<T: for<'de> Deserialize<'de>>(&mut self) -> SdbResult<Vec<T>> {
+        match serde_json::from_value(self.result.clone()) {
+            Ok(v) => Ok(v),
+            Err(err) => Err(SdbError::parse_failure::<T>(&self, err)),
+        }
     }
 
-    pub fn parse_one<T: for<'de> Deserialize<'de>>(&mut self) -> T {
-        self.parse_opt().unwrap()
-    }
-
-    pub fn parse_opt<T: for<'de> Deserialize<'de>>(&mut self) -> Option<T> {
-        let Value::Array( mut arr ) = self.result.clone() else {
-            panic!( "Invalid response: Expected array, found \n\n{:?}\n\n", self.result )
-        };
-        let Some( one ) = arr.first_mut() else { return None };
-        if let Ok(one) = serde_json::from_value::<T>(one.clone()) {
-            return Some(one);
-        }
-
-
-        if let Ok( val ) = serde_json::from_value::<T>(one.clone()) {
-            return Some( val )
-        }
-        match one.take() {
-            Value::Object(mut obj) if obj.keys().len() == 1 => {
-                let (_, inner) = obj.iter_mut().next().unwrap();
-                serde_json::from_value::<T>(inner.take()).ok()
+    pub fn parse_one<T: for<'de> Deserialize<'de>>(&mut self) -> SdbResult<T> {
+        match &mut self.result {
+            Value::Array(arr) if arr.len() > 0 => {
+                match from_value::<T>(arr[0].clone()) {
+                    Ok(v) => Ok(v),
+                    Err(err) => Err(SdbError::parse_failure::<T>(&self, err)),
+                }
             },
-            _ => None,
+            _ => {
+                match from_value::<T>(self.result.clone()) {
+                    Ok(v) => Ok(v),
+                    Err(err) => Err(SdbError::parse_failure::<T>(&self, err)),
+                }
+            },
+        }
+    }
+
+    pub fn parse_opt<T: for<'de> Deserialize<'de>>(&mut self) -> SdbResult<Option<T>> {
+        match &mut self.result {
+            Value::Array(arr) if arr.len() == 0 => {
+                Ok(None)
+            },
+            Value::Array(arr) => {
+                match from_value::<T>(arr[0].clone()) {
+                    Ok(v) => Ok(Some(v)),
+                    Err(err) => Err(SdbError::parse_failure::<T>(&self, err)),
+                }
+            },
+            _ => {
+                Ok( from_value::<T>(self.result.clone()).ok() )
+            },
         }
     }
 

@@ -220,7 +220,7 @@ impl SurrealClient {
 
         let mut ids = vec![];
         for mut reply in results.replies {
-            ids.push( reply.parse_one::<RecordId>() )
+            ids.push( reply.parse_one::<RecordId>()? )
         }
         Ok(ids)
     }

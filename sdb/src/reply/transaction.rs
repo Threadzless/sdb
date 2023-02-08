@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use serde_json::{from_value, Value};
 
 use crate::{error::*, transaction::TransQuery};
 
@@ -52,12 +51,7 @@ impl QueryReply {
     where
         T: for<'de> Deserialize<'de>,
     {
-        let result = self.next_result();
-
-        match from_value::<Vec<T>>(result.result.take()) {
-            Ok(v) => Ok(v),
-            Err(err) => Err(SdbError::parse_failure::<Vec<T>>(result, err)),
-        }
+        self.next_result().parse_vec()
     }
 
     /// Get zero or one results
@@ -65,23 +59,7 @@ impl QueryReply {
     where
         T: for<'de> Deserialize<'de>,
     {
-        let result = self.next_result();
-        let Value::Array(mut arr) = result.result.take() else {
-            panic!("Invalid input Transaction::next_opt");
-        };
-
-        let Some( first ) = arr.get_mut( 0 ) else {
-            panic!();
-        };
-
-        if first.is_null() {
-            panic!();
-        };
-
-        match from_value::<T>(first.take()) {
-            Ok(v) => Ok(Some(v)),
-            Err(err) => Err(SdbError::parse_failure::<Option<T>>(result, err)),
-        }
+        self.next_result().parse_opt()
     }
 
     /// Get exactly one result, or an error
@@ -89,23 +67,6 @@ impl QueryReply {
     where
         T: for<'de> Deserialize<'de>,
     {
-        let result = self.next_result();
-        let Value::Array(mut arr) = result.result.clone() else {
-            panic!("Invalid input Transaction::next_one");
-        };
-
-        let Some( first ) = arr.get_mut( 0 ) else {
-            panic!();
-        };
-
-        if first.is_null() {
-            panic!();
-        };
-
-        match from_value::<T>(first.take()) {
-            Ok(v) => Ok(v),
-            Err(err) => Err(SdbError::parse_failure::<T>(result, err)),
-        }
-
+        self.next_result().parse_one()
     }
 }
