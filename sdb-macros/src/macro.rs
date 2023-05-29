@@ -269,10 +269,15 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
 
     let mut table_name = None;
     for attr in obj.attrs {
-        let Some( attr_name ) = attr.path.get_ident() else { continue };
-        if attr_name.ne("table") { continue }
-        let Ok( val ) = attr.parse_args::<LitStr>() else { continue };
-        table_name = Some( val );
+        match attr.path.get_ident() {
+            Some( v ) if v.eq("table") => {
+                let Ok( val ) = attr.parse_args::<LitStr>() else { continue };
+                table_name = Some( val );
+            },
+            _ => todo!()
+        }
+        // let Some( attr_name ) = attr.path.get_ident() else { continue };
+        // if attr_name.ne("table") { continue }
     }
 
     if table_name.is_none() {
@@ -286,40 +291,42 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
             continue;
         };
         let Type::Path( path ) = field.ty else { continue };
-        let Some( last ) = path.path.segments.last() else { continue };
-        let ty_name = last.ident.to_string();
+        let field_ty = path.path;
+        let field_end = field_ty.segments.last().unwrap();
 
-        if ident.to_string().ne("id") {
-            if last.ident.eq("String") {
-                field_names.extend(quote!{ #ident: #ident.to_string(), });
-                field_defs.extend(quote!{ #ident: impl ToString, });
+        if ident.eq("id") {
+            if field_ty.is_ident("RecordId") {
+                has_id_field = true;
+                continue;
             }
-            else if last.ident.eq("RecordLink") {
-                field_names.extend(quote!{ #ident: #ident.into(), });
-                field_defs.extend(quote!{ #ident: impl Into<#path>, });
-            }
-            else {
-                field_names.extend(quote!{ #ident, });
-                field_defs.extend(quote!{ #ident: #path, });
-            }
+            emit_error!( ident, "`id` field must be a RecordId";
+                help = "SurrealRecord derive macro requires an `id` to be defined like so:\n\tpub id: RecordId,\n\n"
+            );
+            continue;
         }
 
-        match ty_name.as_str() {
-            "RecordLink" => {
-                let PathArguments::AngleBracketed( inner_ty ) = &last.arguments else {
-                    unreachable!("There should be arguments");
-                };
-                let inner_ty = &inner_ty.args;
-                out.extend(quote!{
-                    pub fn #ident ( &self ) -> & #inner_ty {
-                        self . #ident . record() . unwrap()
-                    }
-                });
+        match field_ty.get_ident() {
+            None if field_end.ident.eq("RecordLink") => {
+                field_names.extend(quote!{ #ident: #ident.into(), });
+                field_defs.extend(quote!{ #ident: impl Into<#field_ty>, });
+
+                if let PathArguments::AngleBracketed( inner_ty ) = &field_end.arguments {
+                    let inner_ty = &inner_ty.args;
+                    out.extend(quote!{
+                        pub fn #ident ( &self ) -> & #inner_ty {
+                            self . #ident . record() . unwrap()
+                        }
+                    });
+                }
             },
-            "RecordId" if ident.to_string().eq("id") => {
-                has_id_field = true;
+            Some( ty ) if ty.eq("String") => {
+                field_names.extend(quote!{ #ident: #ident.to_string(), });
+                field_defs.extend(quote!{ #ident: impl ToString, });
             },
-            _ => continue
+            _ => {
+                field_names.extend(quote!{ #ident: #ident.into(), });
+                field_defs.extend(quote!{ #ident: impl Into<#field_ty>, });
+            }
         }
     }
 
@@ -331,8 +338,10 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
         return quote!{}.into()
     }
 
+    let (impl_generics, ty_generics, where_clause) = obj.generics.split_for_impl();
+
     let output = quote!{
-        impl ::sdb::prelude::SurrealRecord for #struct_name {
+        impl #impl_generics ::sdb::prelude::SurrealRecord for #struct_name #ty_generics #where_clause {
             fn id(&self) -> &sdb::prelude::RecordId {
                 &self.id
             }
@@ -342,7 +351,7 @@ pub fn derive_surreal_record(input: TokenStreamOld) -> TokenStreamOld {
             }
         }
 
-        impl #struct_name {
+        impl #impl_generics #struct_name #ty_generics #where_clause {
             #out
             pub fn new( #field_defs ) -> Self {
                 Self {
